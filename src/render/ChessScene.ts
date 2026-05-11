@@ -25,6 +25,7 @@ export class ChessScene {
   private readonly clock = new THREE.Clock();
   private readonly loader = new GLTFLoader();
   private readonly squareMeshes = new Map<SquareId, THREE.Mesh>();
+  private readonly squareIndicators = new Map<SquareId, THREE.Mesh>();
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
   private readonly animations = new Map<string, PieceAnimation>();
@@ -42,6 +43,9 @@ export class ChessScene {
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.18;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.mount.appendChild(this.renderer.domElement);
@@ -68,6 +72,7 @@ export class ChessScene {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        this.tuneMeshMaterial(child);
       }
     });
 
@@ -86,12 +91,12 @@ export class ChessScene {
   }
 
   zoomIn() {
-    this.controls.dollyIn(1.2);
+    this.adjustZoom(-0.08);
     this.controls.update();
   }
 
   zoomOut() {
-    this.controls.dollyOut(1.2);
+    this.adjustZoom(0.08);
     this.controls.update();
   }
 
@@ -104,22 +109,47 @@ export class ChessScene {
 
     for (const [square, mesh] of this.squareMeshes) {
       const material = mesh.material as THREE.MeshBasicMaterial;
+      const indicator = this.squareIndicators.get(square);
 
       if (selected === square) {
         material.color.set("#f3d67d");
-        material.opacity = 0.42;
+        material.opacity = 0.26;
+        if (indicator) {
+          indicator.visible = true;
+          (indicator.material as THREE.MeshBasicMaterial).color.set("#f6d978");
+          (indicator.material as THREE.MeshBasicMaterial).opacity = 0.92;
+          indicator.scale.setScalar(1.08);
+        }
       } else if (legalSet.has(square)) {
-        material.color.set("#5fa06f");
-        material.opacity = 0.36;
+        material.color.set("#6ebb7b");
+        material.opacity = 0.18;
+        if (indicator) {
+          indicator.visible = true;
+          (indicator.material as THREE.MeshBasicMaterial).color.set("#63d879");
+          (indicator.material as THREE.MeshBasicMaterial).opacity = 0.95;
+          indicator.scale.setScalar(0.74);
+        }
       } else if (lastMove && (lastMove.from === square || lastMove.to === square)) {
         material.color.set("#d6a05c");
         material.opacity = 0.24;
+        if (indicator) {
+          indicator.visible = true;
+          (indicator.material as THREE.MeshBasicMaterial).color.set("#e4a95b");
+          (indicator.material as THREE.MeshBasicMaterial).opacity = 0.42;
+          indicator.scale.setScalar(0.58);
+        }
       } else if (this.isLightSquare(square)) {
         material.color.set("#efd9b2");
         material.opacity = 0.08;
+        if (indicator) {
+          indicator.visible = false;
+        }
       } else {
         material.color.set("#7a5736");
         material.opacity = 0.08;
+        if (indicator) {
+          indicator.visible = false;
+        }
       }
     }
   }
@@ -211,8 +241,8 @@ export class ChessScene {
     const ambient = new THREE.HemisphereLight("#f8ebcf", "#24160a", 1.2);
     this.scene.add(ambient);
 
-    const key = new THREE.DirectionalLight("#ffe6b8", 1.8);
-    key.position.set(-0.3, 0.65, 0.28);
+    const key = new THREE.DirectionalLight("#ffe6b8", 2.15);
+    key.position.set(-0.22, 0.72, 0.22);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
     key.shadow.camera.near = 0.1;
@@ -223,13 +253,18 @@ export class ChessScene {
     key.shadow.camera.bottom = -0.5;
     this.scene.add(key);
 
-    const rim = new THREE.PointLight("#d8904f", 1.1, 2.5);
+    const fill = new THREE.PointLight("#f7c78c", 0.85, 2.2);
+    fill.position.set(0.15, 0.26, 0.24);
+    this.scene.add(fill);
+
+    const rim = new THREE.PointLight("#d8904f", 1.25, 2.8);
     rim.position.set(0.36, 0.2, -0.24);
     this.scene.add(rim);
   }
 
   private addSquareTargets() {
     const geometry = new THREE.PlaneGeometry(SQUARE_SIZE, SQUARE_SIZE);
+    const markerGeometry = new THREE.CircleGeometry(SQUARE_SIZE * 0.22, 32);
 
     for (const square of ALL_SQUARES) {
       const mesh = new THREE.Mesh(
@@ -246,6 +281,20 @@ export class ChessScene {
       mesh.userData.square = square;
       this.squareMeshes.set(square, mesh);
       this.scene.add(mesh);
+
+      const indicator = new THREE.Mesh(
+        markerGeometry,
+        new THREE.MeshBasicMaterial({
+          color: "#63d879",
+          transparent: true,
+          opacity: 0.92
+        })
+      );
+      indicator.rotation.x = -Math.PI / 2;
+      indicator.position.set(position.x, BOARD_SURFACE_Y + 0.0016, position.z);
+      indicator.visible = false;
+      this.squareIndicators.set(square, indicator);
+      this.scene.add(indicator);
     }
   }
 
@@ -333,6 +382,57 @@ export class ChessScene {
         animation.object.position.copy(animation.end);
         this.animations.delete(pieceId);
       }
+    }
+  }
+
+  private adjustZoom(delta: number) {
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    const currentDistance = offset.length();
+    const nextDistance = THREE.MathUtils.clamp(
+      currentDistance + delta,
+      this.controls.minDistance,
+      this.controls.maxDistance
+    );
+
+    if (Math.abs(nextDistance - currentDistance) < 0.0001) {
+      return;
+    }
+
+    offset.setLength(nextDistance);
+    this.camera.position.copy(this.controls.target).add(offset);
+  }
+
+  private tuneMeshMaterial(mesh: THREE.Mesh) {
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+    for (const material of materials) {
+      if (!(material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhysicalMaterial)) {
+        continue;
+      }
+
+      material.roughness = Math.max(0.22, material.roughness * 0.88);
+      material.metalness = Math.min(0.08, material.metalness);
+      material.envMapIntensity = 0.95;
+
+      const textures = [
+        material.map,
+        material.normalMap,
+        material.roughnessMap,
+        material.metalnessMap,
+        material.aoMap
+      ];
+
+      for (const texture of textures) {
+        if (!texture) {
+          continue;
+        }
+
+        texture.colorSpace = texture === material.map ? THREE.SRGBColorSpace : texture.colorSpace;
+        texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+        texture.needsUpdate = true;
+      }
+
+      material.needsUpdate = true;
     }
   }
 

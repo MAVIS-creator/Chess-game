@@ -169,8 +169,7 @@ const startGame = async () => {
 
   const sync = () => {
     const snapshot = controller.getSnapshot();
-    const displayTargets =
-      aiController.shouldHideHints() && snapshot.currentTurn === "white" ? [] : snapshot.legalTargets;
+    const displayTargets = snapshot.legalTargets;
 
     if (snapshot.moveCount > lastAudibleMoveCount && snapshot.lastMoveSoundCue) {
       soundboard.playCue(snapshot.lastMoveSoundCue);
