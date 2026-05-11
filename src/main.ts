@@ -70,4 +70,8 @@ chessScene.setSquareSelectHandler((square) => {
 
 void chessScene.loadScene().then(() => {
   sync();
+}).catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  hudRoot.innerHTML = `<div class="hero-status is-error"><span class="hero-label">Runtime error</span><strong>Scene initialization failed</strong><p>${message}</p></div>`;
+  console.error(error);
 });

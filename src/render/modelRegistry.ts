@@ -19,6 +19,8 @@ export interface ModelRegistry {
 }
 
 const templateKey = (color: string, role: string) => `${color}:${role}`;
+const sanitizeNodeName = (nodeName: string) => nodeName.replace(/[^\w]/g, "_");
+const normalizeNodeName = (nodeName: string) => nodeName.replace(/[^a-z0-9]/gi, "").toLowerCase();
 
 const prepareShadows = (object: THREE.Object3D) => {
   object.traverse((child) => {
@@ -43,10 +45,19 @@ export const buildModelRegistry = (
   const templates = new Map<string, THREE.Object3D>();
 
   for (const descriptor of descriptors) {
-    const object = scene.getObjectByName(descriptor.nodeName);
+    const object =
+      scene.getObjectByName(descriptor.nodeName) ??
+      scene.getObjectByName(sanitizeNodeName(descriptor.nodeName)) ??
+      findNodeByNormalizedName(scene, descriptor.nodeName);
 
     if (!object) {
-      throw new Error(`Missing piece node: ${descriptor.nodeName}`);
+      const similarNames: string[] = [];
+      scene.traverse((node) => {
+        if (node.name && node.name.toLowerCase().includes(descriptor.role)) {
+          similarNames.push(node.name);
+        }
+      });
+      throw new Error(`Missing piece node: ${descriptor.nodeName}. Similar loaded names: ${similarNames.slice(0, 8).join(", ")}`);
     }
 
     prepareShadows(object);
@@ -72,3 +83,16 @@ export const buildModelRegistry = (
 };
 
 export const getTemplateKey = templateKey;
+
+const findNodeByNormalizedName = (scene: THREE.Object3D, nodeName: string) => {
+  const target = normalizeNodeName(nodeName);
+  let match: THREE.Object3D | null = null;
+
+  scene.traverse((node) => {
+    if (!match && node.name && normalizeNodeName(node.name) === target) {
+      match = node;
+    }
+  });
+
+  return match;
+};
