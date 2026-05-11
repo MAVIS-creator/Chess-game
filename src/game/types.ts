@@ -15,8 +15,10 @@ export interface BotHudState {
   provider: string;
   commentary: string;
   thinking: boolean;
+  thinkingStage: string | null;
   lastStyle: string;
   source: "stockfish" | "llm";
+  playerName: string;
 }
 
 export interface PieceDescriptor {

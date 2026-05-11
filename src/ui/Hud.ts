@@ -19,14 +19,21 @@ export class Hud {
   }
 
   renderStatus(snapshot: GameSnapshot, botState: BotHudState) {
-    const capturedWhite = snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length;
-    const capturedBlack = snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length;
-    const moveState = snapshot.selectedSquare
-      ? `Selected ${snapshot.selectedSquare.toUpperCase()}`
-      : botState.thinking
-        ? "The bot is calculating its reply."
-        : "Pick a piece to begin.";
-    const stateTone = snapshot.gameOver ? "is-finished" : snapshot.inCheck ? "is-alert" : "is-live";
+    const turnTitle =
+      snapshot.currentTurn === "white"
+        ? `${botState.playerName}'s turn`
+        : botState.thinking
+          ? botState.thinkingStage ?? "AI is thinking"
+          : "AI to move";
+
+    const turnSubtitle =
+      snapshot.currentTurn === "white"
+        ? snapshot.selectedSquare
+          ? `Selected ${snapshot.selectedSquare.toUpperCase()}`
+          : "Choose a piece to move."
+        : botState.thinking
+          ? "Please wait..."
+          : "Watch the reply.";
 
     const promotionMarkup = snapshot.pendingPromotion
       ? `
@@ -42,39 +49,30 @@ export class Hud {
       : "";
 
     this.root.innerHTML = `
-      <div class="hud-cluster ${stateTone}">
-        <div class="hero-status ${botState.thinking ? "is-thinking" : ""}">
-          <span class="hero-label">${snapshot.gameOver ? "Game finished" : snapshot.inCheck ? "King under pressure" : "Match live"}</span>
-          <strong>${snapshot.statusText}</strong>
-          <p>${botState.thinking ? "The bot is thinking." : snapshot.gameOver ? "Reset to start a new match from the opening setup." : "Click a piece, then click a highlighted square."}</p>
+      <div class="top-hud ${botState.thinking ? "is-thinking" : ""}">
+        <div class="turn-badge">
+          <span class="hero-label">${snapshot.inCheck ? "Check pressure" : snapshot.gameOver ? "Match finished" : "Turn"}</span>
+          <strong>${turnTitle}</strong>
+          <p>${snapshot.gameOver ? snapshot.statusText : turnSubtitle}</p>
         </div>
-        <div class="stat-block">
-          <span>Turn</span>
-          <strong>${snapshot.currentTurn === "white" ? "White" : "Black"}</strong>
+        <div class="status-pills">
+          <span>${botState.playerName} vs AI</span>
+          <span>${botState.difficulty}</span>
+          <span>${snapshot.currentTurn === "white" ? "White to play" : "Black to play"}</span>
         </div>
-        <div class="stat-block">
-          <span>Difficulty</span>
-          <strong>${botState.difficulty}</strong>
-        </div>
-        <div class="stat-block">
-          <span>Selection</span>
-          <strong>${moveState}</strong>
-        </div>
-        <div class="stat-block">
+      </div>
+      <div class="bottom-hud">
+        <div class="mini-card">
           <span>Last move</span>
           <strong>${snapshot.lastMove ? `${snapshot.lastMove.from.toUpperCase()} → ${snapshot.lastMove.to.toUpperCase()}` : "Opening position"}</strong>
         </div>
-        <div class="stat-block">
-          <span>Half-moves played</span>
-          <strong>${snapshot.moveCount}</strong>
+        <div class="mini-card">
+          <span>Captured</span>
+          <strong>White ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length} · Black ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length}</strong>
         </div>
-        <div class="stat-block">
-          <span>Captured pieces</span>
-          <strong>White ${capturedWhite} · Black ${capturedBlack}</strong>
-        </div>
-        <button class="reset-button" type="button" data-action="reset">Reset game</button>
-        ${promotionMarkup}
+        <button class="reset-button compact" type="button" data-action="reset">Reset</button>
       </div>
+      ${promotionMarkup}
     `;
   }
 

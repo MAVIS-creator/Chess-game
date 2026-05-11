@@ -18,8 +18,10 @@ export interface BotRuntimeState {
   provider: string;
   commentary: string;
   thinking: boolean;
+  thinkingStage: string | null;
   lastStyle: string;
   source: "stockfish" | "llm";
+  playerName: string;
 }
 
 export class AiMoveController {
@@ -30,9 +32,12 @@ export class AiMoveController {
   private readonly botColor: PieceColor = "black";
   private readonly playerColor: PieceColor = "white";
   private thinking = false;
+  private thinkingStage: string | null = null;
   private commentary = "The board is waiting.";
   private lastStyle = "opening";
   private source: "stockfish" | "llm" = "stockfish";
+  private playerName = "Player";
+  private stateListener: (() => void) | null = null;
 
   constructor(private readonly controller: ChessController) {}
 
@@ -44,20 +49,33 @@ export class AiMoveController {
       provider: this.decisionLayer.getProvider(),
       commentary: this.commentary,
       thinking: this.thinking,
+      thinkingStage: this.thinkingStage,
       lastStyle: this.lastStyle,
-      source: this.source
+      source: this.source,
+      playerName: this.playerName
     };
+  }
+
+  setStateListener(listener: (() => void) | null) {
+    this.stateListener = listener;
+  }
+
+  setPlayerName(playerName: string) {
+    this.playerName = playerName.trim() || "Player";
+    this.notify();
   }
 
   setDifficulty(difficulty: BotDifficulty) {
     this.difficulty = difficulty;
     this.commentary = `${difficulty} engaged.`;
+    this.notify();
   }
 
   setPersonality(personalityId: string) {
     this.personality =
       BOT_PERSONALITIES.find((candidate) => candidate.id === personalityId) ?? DEFAULT_PERSONALITY;
     this.commentary = `${this.personality.name} has taken the chair.`;
+    this.notify();
   }
 
   canPlayerInteract() {
@@ -73,6 +91,8 @@ export class AiMoveController {
     this.lastStyle = "opening";
     this.source = "stockfish";
     this.thinking = false;
+    this.thinkingStage = null;
+    this.notify();
   }
 
   async maybeRunBotTurn() {
@@ -82,15 +102,22 @@ export class AiMoveController {
     }
 
     this.thinking = true;
-    this.commentary = `${this.personality.name} is studying the position.`;
+    this.commentary = "The board is waiting for the reply.";
+    this.thinkingStage = "AI is thinking";
+    this.notify();
 
     try {
+      await this.pause(320);
+      this.thinkingStage = "Analyzing lines";
+      this.notify();
       const analysis = await this.engine.analyzePosition({
         fen: this.controller.getFen(),
         depth: DIFFICULTY_CONFIG[this.difficulty].depth,
         multiPv: DIFFICULTY_CONFIG[this.difficulty].multiPv
       });
 
+      this.thinkingStage = "Choosing a move";
+      this.notify();
       const decision = await this.decisionLayer.chooseMove({
         fen: this.controller.getFen(),
         moveHistory: this.controller.getMoveHistoryUci(),
@@ -101,13 +128,19 @@ export class AiMoveController {
         candidateMoves: analysis.candidates
       });
 
+      await this.pause(220);
+      this.thinkingStage = "Finalizing";
+      this.notify();
       const executed = this.tryDecision(decision) ?? this.tryBestMove(analysis.bestMove, decision);
       this.commentary = executed.commentary;
       this.lastStyle = executed.style;
       this.source = executed.source;
+      this.notify();
       return true;
     } finally {
       this.thinking = false;
+      this.thinkingStage = null;
+      this.notify();
     }
   }
 
@@ -141,5 +174,15 @@ export class AiMoveController {
       style: "best",
       source: "stockfish" as const
     };
+  }
+
+  private notify() {
+    this.stateListener?.();
+  }
+
+  private pause(durationMs: number) {
+    return new Promise<void>((resolve) => {
+      window.setTimeout(resolve, durationMs);
+    });
   }
 }

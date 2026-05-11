@@ -26,6 +26,7 @@ if (!app) {
 
 const soundboard = new ChessSoundboard();
 let selectedDifficulty: BotDifficulty = DEFAULT_DIFFICULTY;
+let playerName = "Player";
 const searchParams = new URLSearchParams(window.location.search);
 
 const renderMenu = () => {
@@ -33,21 +34,28 @@ const renderMenu = () => {
     <main class="menu-shell">
       <section class="menu-hero">
         <p class="eyebrow">Wooden Chess</p>
-        <h1>Pick your opponent, then step onto the board.</h1>
+        <h1>Enter your name, choose a difficulty, then start the match.</h1>
         <p class="lede">
-          This opening screen is now the match lobby. Choose the bot difficulty here, then launch
-          straight into a clean floating-board match view.
+          The board will open cleanly on start, with only a light in-game overlay. Difficulty is
+          set before the match begins.
         </p>
         <div class="menu-notes">
-          <div class="menu-chip"><span>Board</span><strong>3D wooden GLB set</strong></div>
-          <div class="menu-chip"><span>Rules</span><strong>Full legal chess</strong></div>
-          <div class="menu-chip"><span>View</span><strong>Floating board in open space</strong></div>
+          <div class="menu-chip"><span>Board</span><strong>Floating 3D chess set</strong></div>
+          <div class="menu-chip"><span>Sound</span><strong>Move and capture audio</strong></div>
+          <div class="menu-chip"><span>Play</span><strong>Human vs AI</strong></div>
         </div>
       </section>
       <aside class="menu-panel">
         <div class="hero-status">
           <span class="hero-label">Match setup</span>
-          <strong>Set the challenge level before the board loads.</strong>
+          <strong>Everything important is chosen before the board loads.</strong>
+          <p>Your name appears in the match HUD and the difficulty controls how strong the AI feels.</p>
+        </div>
+        <label class="select-block">
+          <span>Player name</span>
+          <input id="menu-player-name" class="menu-input" type="text" maxlength="20" placeholder="Enter your name" value="${playerName}" />
+        </label>
+        <label class="select-block">
           <span>Difficulty</span>
           <select id="menu-difficulty">
             ${BOT_DIFFICULTIES.map(
@@ -56,33 +64,62 @@ const renderMenu = () => {
             ).join("")}
           </select>
         </label>
+        <div class="difficulty-note">
+          <span>Current challenge</span>
+          <strong>${selectedDifficulty}</strong>
+          <p>${difficultyDescription(selectedDifficulty)}</p>
+        </div>
         <button class="start-button" id="start-match" type="button">Start match</button>
       </aside>
     </main>
   `;
 
   const difficultySelect = document.querySelector<HTMLSelectElement>("#menu-difficulty");
+  const playerNameInput = document.querySelector<HTMLInputElement>("#menu-player-name");
+  const difficultyNote = document.querySelector<HTMLElement>(".difficulty-note");
   const startButton = document.querySelector<HTMLButtonElement>("#start-match");
 
   difficultySelect?.addEventListener("change", () => {
     selectedDifficulty = difficultySelect.value as BotDifficulty;
+    if (difficultyNote) {
+      difficultyNote.innerHTML = `
+        <span>Current challenge</span>
+        <strong>${selectedDifficulty}</strong>
+        <p>${difficultyDescription(selectedDifficulty)}</p>
+      `;
+    }
+  });
+
+  playerNameInput?.addEventListener("input", () => {
+    playerName = playerNameInput.value.trim() || "Player";
   });
 
   startButton?.addEventListener("click", () => {
+    playerName = playerNameInput?.value.trim() || "Player";
     soundboard.prime();
     void startGame();
   });
 };
 
+const difficultyDescription = (difficulty: BotDifficulty) => {
+  switch (difficulty) {
+    case "Easy":
+      return "Very forgiving and light pressure.";
+    case "Normal":
+      return "Balanced and solid.";
+    case "Hard":
+      return "Sharper and more consistent.";
+    case "Boss Mode":
+      return "Strong, aggressive, and punishing.";
+    case "Nightmare Mode":
+      return "Extremely hard with heavy tactical pressure.";
+  }
+};
+
 const renderGameShell = () => {
   app.innerHTML = `
     <main class="play-shell">
-      <div class="space-stage" id="board-stage">
-        <div class="board-badge">
-          <span>Wooden match</span>
-          <strong>Floating board · full rules · move audio</strong>
-        </div>
-      </div>
+      <div class="space-stage" id="board-stage"></div>
       <aside class="play-hud" id="hud-root"></aside>
     </main>
   `;
@@ -104,6 +141,7 @@ const startGame = async () => {
   const hud = new Hud(hudRoot);
   let lastAudibleMoveCount = 0;
 
+  aiController.setPlayerName(playerName);
   aiController.setDifficulty(selectedDifficulty);
   aiController.setPersonality(getPersonalityForDifficulty(selectedDifficulty).id);
   aiController.reset();
@@ -126,6 +164,8 @@ const startGame = async () => {
     chessScene.highlightSquares(snapshot.selectedSquare, displayTargets, snapshot.lastMove);
     hud.renderStatus(snapshot, aiController.getState());
   };
+
+  aiController.setStateListener(sync);
 
   const syncAndRunBotTurn = async () => {
     sync();
@@ -174,7 +214,7 @@ const startGame = async () => {
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    hudRoot.innerHTML = `<div class="hero-status is-error"><span class="hero-label">Runtime error</span><strong>Scene initialization failed</strong><p>${message}</p></div>`;
+    hudRoot.innerHTML = `<div class="top-hud"><div class="turn-badge"><span class="hero-label">Runtime error</span><strong>Scene initialization failed</strong><p>${message}</p></div></div>`;
     console.error(error);
   }
 };
