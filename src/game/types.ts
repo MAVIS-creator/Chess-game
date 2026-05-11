@@ -9,6 +9,7 @@ export type PieceColor = "white" | "black";
 export type PieceRole = "pawn" | "rook" | "knight" | "bishop" | "queen" | "king";
 
 export interface PieceDescriptor {
+  id: string;
   color: PieceColor;
   role: PieceRole;
   nodeName: string;
@@ -19,4 +20,33 @@ export interface SquareInfo {
   id: SquareId;
   file: FileKey;
   rank: RankKey;
+}
+
+export interface GamePieceState {
+  id: string;
+  color: PieceColor;
+  role: PieceRole;
+  square: SquareId | null;
+  captured: boolean;
+}
+
+export interface MoveSummary {
+  from: SquareId;
+  to: SquareId;
+}
+
+export interface PromotionState {
+  from: SquareId;
+  to: SquareId;
+}
+
+export interface GameSnapshot {
+  pieces: GamePieceState[];
+  currentTurn: PieceColor;
+  selectedSquare: SquareId | null;
+  legalTargets: SquareId[];
+  lastMove: MoveSummary | null;
+  pendingPromotion: PromotionState | null;
+  statusText: string;
+  gameOver: boolean;
 }

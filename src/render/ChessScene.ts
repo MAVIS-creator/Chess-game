@@ -2,15 +2,19 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { INITIAL_PIECES } from "../game/setup";
-import type { SquareId } from "../game/types";
+import type { GamePieceState, MoveSummary, PieceRole, SquareId } from "../game/types";
 import { ALL_SQUARES, BOARD_SURFACE_Y, SQUARE_SIZE, getSquarePosition } from "./boardLayout";
-import { buildModelRegistry, type ModelRegistry } from "./modelRegistry";
+import { buildModelRegistry, getTemplateKey, type ModelRegistry, type PieceView } from "./modelRegistry";
 
 const ASSET_PATH = "/wooden_chess_set.glb";
 
-export interface SceneLoadResult {
-  registry: ModelRegistry;
-  squareMeshes: Map<SquareId, THREE.Mesh>;
+interface PieceAnimation {
+  pieceId: string;
+  object: THREE.Object3D;
+  start: THREE.Vector3;
+  end: THREE.Vector3;
+  elapsed: number;
+  duration: number;
 }
 
 export class ChessScene {
@@ -21,8 +25,12 @@ export class ChessScene {
   private readonly clock = new THREE.Clock();
   private readonly loader = new GLTFLoader();
   private readonly squareMeshes = new Map<SquareId, THREE.Mesh>();
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly pointer = new THREE.Vector2();
+  private readonly animations = new Map<string, PieceAnimation>();
   private frameHandle = 0;
   private registry: ModelRegistry | null = null;
+  private onSquareSelect: ((square: SquareId) => void) | null = null;
 
   constructor(private readonly mount: HTMLElement) {
     this.scene = new THREE.Scene();
@@ -50,10 +58,11 @@ export class ChessScene {
     this.addLights();
     this.addSquareTargets();
     this.handleResize();
+    this.renderer.domElement.addEventListener("pointerdown", this.handlePointerDown);
     window.addEventListener("resize", this.handleResize);
   }
 
-  async loadScene(): Promise<SceneLoadResult> {
+  async loadScene() {
     const gltf = await this.loader.loadAsync(ASSET_PATH);
     gltf.scene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
@@ -67,14 +76,92 @@ export class ChessScene {
     this.start();
 
     return {
-      registry: this.registry,
-      squareMeshes: this.squareMeshes
+      pieceCount: this.registry.pieceViews.size,
+      squareCount: this.squareMeshes.size
     };
+  }
+
+  setSquareSelectHandler(handler: (square: SquareId) => void) {
+    this.onSquareSelect = handler;
+  }
+
+  highlightSquares(selected: SquareId | null, legalTargets: SquareId[], lastMove: MoveSummary | null) {
+    const legalSet = new Set(legalTargets);
+
+    for (const [square, mesh] of this.squareMeshes) {
+      const material = mesh.material as THREE.MeshBasicMaterial;
+
+      if (selected === square) {
+        material.color.set("#f3d67d");
+        material.opacity = 0.42;
+      } else if (legalSet.has(square)) {
+        material.color.set("#5fa06f");
+        material.opacity = 0.36;
+      } else if (lastMove && (lastMove.from === square || lastMove.to === square)) {
+        material.color.set("#d6a05c");
+        material.opacity = 0.24;
+      } else if (this.isLightSquare(square)) {
+        material.color.set("#efd9b2");
+        material.opacity = 0.08;
+      } else {
+        material.color.set("#7a5736");
+        material.opacity = 0.08;
+      }
+    }
+  }
+
+  syncBoardState(pieces: GamePieceState[], animateMove: MoveSummary | null) {
+    if (!this.registry) {
+      return;
+    }
+
+    for (const piece of pieces) {
+      const view = this.registry.pieceViews.get(piece.id);
+
+      if (!view) {
+        continue;
+      }
+
+      this.ensureRoleMesh(view, piece.role, piece.color);
+
+      if (piece.captured || !piece.square) {
+        view.activeObject.visible = false;
+        view.currentSquare = null;
+        continue;
+      }
+
+      const targetPosition = getSquarePosition(piece.square);
+      const next = new THREE.Vector3(targetPosition.x, view.baseY, targetPosition.z);
+      view.activeObject.visible = true;
+
+      const shouldAnimate =
+        animateMove !== null &&
+        piece.square === animateMove.to &&
+        view.currentSquare === animateMove.from &&
+        !this.animations.has(piece.id);
+
+      if (shouldAnimate) {
+        this.animations.set(piece.id, {
+          pieceId: piece.id,
+          object: view.activeObject,
+          start: view.activeObject.position.clone(),
+          end: next,
+          elapsed: 0,
+          duration: 0.22
+        });
+      } else if (!this.animations.has(piece.id)) {
+        view.activeObject.position.copy(next);
+      }
+
+      view.activeObject.quaternion.copy(view.baseQuaternion);
+      view.currentSquare = piece.square;
+    }
   }
 
   dispose() {
     cancelAnimationFrame(this.frameHandle);
     this.controls.dispose();
+    this.renderer.domElement.removeEventListener("pointerdown", this.handlePointerDown);
     this.renderer.dispose();
     window.removeEventListener("resize", this.handleResize);
     this.mount.removeChild(this.renderer.domElement);
@@ -102,22 +189,16 @@ export class ChessScene {
   }
 
   private addSquareTargets() {
-    const lightMaterial = new THREE.MeshBasicMaterial({
-      color: "#efd9b2",
-      opacity: 0.08,
-      transparent: true
-    });
-    const darkMaterial = new THREE.MeshBasicMaterial({
-      color: "#7a5736",
-      opacity: 0.08,
-      transparent: true
-    });
     const geometry = new THREE.PlaneGeometry(SQUARE_SIZE, SQUARE_SIZE);
 
     for (const square of ALL_SQUARES) {
       const mesh = new THREE.Mesh(
         geometry,
-        this.isLightSquare(square) ? lightMaterial.clone() : darkMaterial.clone()
+        new THREE.MeshBasicMaterial({
+          color: this.isLightSquare(square) ? "#efd9b2" : "#7a5736",
+          opacity: 0.08,
+          transparent: true
+        })
       );
       const position = getSquarePosition(square);
       mesh.rotation.x = -Math.PI / 2;
@@ -126,6 +207,39 @@ export class ChessScene {
       this.squareMeshes.set(square, mesh);
       this.scene.add(mesh);
     }
+  }
+
+  private ensureRoleMesh(view: PieceView, role: PieceRole, color: GamePieceState["color"]) {
+    if (!this.registry || view.currentRole === role) {
+      return;
+    }
+
+    if (role === view.descriptor.role) {
+      if (view.promotionClone) {
+        this.scene.remove(view.promotionClone);
+        view.promotionClone = null;
+      }
+      view.baseObject.visible = true;
+      view.activeObject = view.baseObject;
+      view.currentRole = role;
+      return;
+    }
+
+    if (!view.promotionClone) {
+      const template = this.registry.templates.get(getTemplateKey(color, role));
+      if (!template) {
+        return;
+      }
+
+      view.promotionClone = template.clone(true);
+      view.promotionClone.name = `${view.descriptor.nodeName}:${role}:promotion`;
+      view.promotionClone.visible = true;
+      this.scene.add(view.promotionClone);
+    }
+
+    view.baseObject.visible = false;
+    view.activeObject = view.promotionClone;
+    view.currentRole = role;
   }
 
   private isLightSquare(square: SquareId) {
@@ -141,16 +255,44 @@ export class ChessScene {
     this.renderer.setSize(clientWidth, clientHeight);
   };
 
+  private handlePointerDown = (event: PointerEvent) => {
+    const bounds = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+    this.pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+
+    const hits = this.raycaster.intersectObjects([...this.squareMeshes.values()], false);
+    const square = hits[0]?.object.userData.square as SquareId | undefined;
+
+    if (square) {
+      this.onSquareSelect?.(square);
+    }
+  };
+
   private start() {
     const render = () => {
       const delta = this.clock.getDelta();
       this.controls.update();
-      this.scene.rotation.y += 0;
+      this.updateAnimations(delta);
       this.renderer.render(this.scene, this.camera);
       this.frameHandle = requestAnimationFrame(render);
-      void delta;
     };
 
     render();
+  }
+
+  private updateAnimations(delta: number) {
+    for (const [pieceId, animation] of this.animations) {
+      animation.elapsed += delta;
+      const progress = Math.min(animation.elapsed / animation.duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      animation.object.position.lerpVectors(animation.start, animation.end, eased);
+      animation.object.position.y += Math.sin(progress * Math.PI) * 0.01;
+
+      if (progress >= 1) {
+        animation.object.position.copy(animation.end);
+        this.animations.delete(pieceId);
+      }
+    }
   }
 }

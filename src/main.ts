@@ -1,5 +1,8 @@
 import "./styles.css";
+import { ChessController } from "./game/ChessController";
+import type { PieceRole } from "./game/types";
 import { ChessScene } from "./render/ChessScene";
+import { Hud } from "./ui/Hud";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -11,43 +14,55 @@ app.innerHTML = `
   <main class="app-shell">
     <section class="stage-panel">
       <div class="stage-copy">
-        <p class="eyebrow">Phase 2 · Scene Runtime</p>
+        <p class="eyebrow">Playable 3D Chess</p>
         <div>
           <h1>Wooden Chess</h1>
           <p class="lede">
-            The imported chess set is now driving a real Three.js scene with board-aligned
-            square targets, guided orbit controls, and a model registry ready for rules.
+            Click a piece, then click a highlighted destination. The imported wooden set now
+            runs on a real chess engine with move validation, captures, castling, en passant,
+            promotion, and endgame detection.
           </p>
         </div>
       </div>
       <div class="board-stage" id="board-stage"></div>
     </section>
-    <aside class="info-panel">
-      <div class="stat-block">
-        <span>Asset</span>
-        <strong>wooden_chess_set.glb</strong>
-      </div>
-      <div class="stat-block">
-        <span>Camera</span>
-        <strong>Guided orbit with capped zoom and tilt</strong>
-      </div>
-      <div class="stat-block">
-        <span>Runtime</span>
-        <strong>Square map, node registry, lighting, shadows</strong>
-      </div>
-      <div class="phase-note" id="phase-note">Loading the 3D scene...</div>
-    </aside>
+    <aside class="info-panel" id="hud-root"></aside>
   </main>
 `;
 
 const boardStage = document.querySelector<HTMLElement>("#board-stage");
-const phaseNote = document.querySelector<HTMLElement>("#phase-note");
+const hudRoot = document.querySelector<HTMLElement>("#hud-root");
 
-if (!boardStage || !phaseNote) {
+if (!boardStage || !hudRoot) {
   throw new Error("Required UI nodes were not found.");
 }
 
 const chessScene = new ChessScene(boardStage);
-void chessScene.loadScene().then(({ registry, squareMeshes }) => {
-  phaseNote.textContent = `Scene ready with ${registry.piecesBySquare.size} mapped pieces and ${squareMeshes.size} board squares.`;
+const controller = new ChessController();
+const hud = new Hud(hudRoot);
+
+const sync = () => {
+  const snapshot = controller.getSnapshot();
+  chessScene.syncBoardState(snapshot.pieces, snapshot.lastMove);
+  chessScene.highlightSquares(snapshot.selectedSquare, snapshot.legalTargets, snapshot.lastMove);
+  hud.renderStatus(snapshot);
+};
+
+hud.bindReset(() => {
+  controller.resetGame();
+  sync();
+});
+
+hud.bindPromotion((role: PieceRole) => {
+  controller.promotePiece(role);
+  sync();
+});
+
+chessScene.setSquareSelectHandler((square) => {
+  controller.selectSquare(square);
+  sync();
+});
+
+void chessScene.loadScene().then(() => {
+  sync();
 });
