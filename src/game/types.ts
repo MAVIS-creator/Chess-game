@@ -8,6 +8,17 @@ export type SquareId = `${FileKey}${RankKey}`;
 export type PieceColor = "white" | "black";
 export type PieceRole = "pawn" | "rook" | "knight" | "bishop" | "queen" | "king";
 
+export interface BotHudState {
+  difficulty: string;
+  personalityId: string;
+  personalityName: string;
+  provider: string;
+  commentary: string;
+  thinking: boolean;
+  lastStyle: string;
+  source: "stockfish" | "llm";
+}
+
 export interface PieceDescriptor {
   id: string;
   color: PieceColor;

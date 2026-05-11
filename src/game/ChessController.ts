@@ -63,17 +63,16 @@ export class ChessController {
 
   selectSquare(square: SquareId) {
     if (this.pendingPromotion) {
-      return;
+      return false;
     }
 
     if (this.selectedSquare && this.legalTargets.includes(square)) {
       if (this.requiresPromotion(this.selectedSquare, square)) {
         this.pendingPromotion = { from: this.selectedSquare, to: square };
-        return;
+        return false;
       }
 
-      this.performMove(this.selectedSquare, square);
-      return;
+      return this.performMove(this.selectedSquare, square);
     }
 
     const piece = this.getPieceAtSquare(square);
@@ -82,22 +81,52 @@ export class ChessController {
     if (!piece || piece.color !== currentTurn) {
       this.selectedSquare = null;
       this.legalTargets = [];
-      return;
+      return false;
     }
 
     this.selectedSquare = square;
     this.legalTargets = this.chess
       .moves({ square, verbose: true })
       .map((move) => move.to as SquareId);
+    return false;
   }
 
   promotePiece(role: PieceRole) {
     if (!this.pendingPromotion) {
-      return;
+      return false;
     }
 
-    this.performMove(this.pendingPromotion.from, this.pendingPromotion.to, role);
+    const moved = this.performMove(this.pendingPromotion.from, this.pendingPromotion.to, role);
     this.pendingPromotion = null;
+    return moved;
+  }
+
+  applyUciMove(uciMove: string) {
+    const from = uciMove.slice(0, 2) as SquareId;
+    const to = uciMove.slice(2, 4) as SquareId;
+    const promotion = uciMove[4];
+
+    return this.performMove(
+      from,
+      to,
+      promotion === "q"
+        ? "queen"
+        : promotion === "r"
+          ? "rook"
+          : promotion === "b"
+            ? "bishop"
+            : promotion === "n"
+              ? "knight"
+              : undefined
+    );
+  }
+
+  getFen() {
+    return this.chess.fen();
+  }
+
+  getMoveHistoryUci() {
+    return this.chess.history({ verbose: true }).map((move) => `${move.from}${move.to}${move.promotion ?? ""}`);
   }
 
   getSnapshot(): GameSnapshot {
@@ -123,7 +152,7 @@ export class ChessController {
     });
 
     if (!move) {
-      return;
+      return false;
     }
 
     const movingPiece = this.getPieceAtSquare(from);
@@ -169,6 +198,7 @@ export class ChessController {
     this.selectedSquare = null;
     this.legalTargets = [];
     this.pendingPromotion = null;
+    return true;
   }
 
   private moveRookForCastle(from: SquareId, to: SquareId) {
