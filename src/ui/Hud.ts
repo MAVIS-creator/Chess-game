@@ -5,6 +5,8 @@ const PROMOTION_CHOICES: PieceRole[] = ["queen", "rook", "bishop", "knight"];
 export class Hud {
   private onReset: (() => void) | null = null;
   private onPromote: ((role: PieceRole) => void) | null = null;
+  private onZoomIn: (() => void) | null = null;
+  private onZoomOut: (() => void) | null = null;
 
   constructor(private readonly root: HTMLElement) {
     this.root.addEventListener("click", this.handleClick);
@@ -18,6 +20,14 @@ export class Hud {
     this.onPromote = handler;
   }
 
+  bindZoomIn(handler: () => void) {
+    this.onZoomIn = handler;
+  }
+
+  bindZoomOut(handler: () => void) {
+    this.onZoomOut = handler;
+  }
+
   renderStatus(snapshot: GameSnapshot, botState: BotHudState) {
     const turnTitle =
       snapshot.currentTurn === "white"
@@ -29,7 +39,7 @@ export class Hud {
     const turnSubtitle =
       snapshot.currentTurn === "white"
         ? snapshot.selectedSquare
-          ? `Selected ${snapshot.selectedSquare.toUpperCase()}`
+          ? `Selected ${snapshot.selectedSquare.toUpperCase()}. Green squares show where it can move.`
           : "Choose a piece to move."
         : botState.thinking
           ? "Please wait..."
@@ -70,6 +80,10 @@ export class Hud {
           <span>Captured</span>
           <strong>White ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length} · Black ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length}</strong>
         </div>
+        <div class="zoom-controls">
+          <button class="zoom-button" type="button" data-action="zoom-out" aria-label="Zoom out">−</button>
+          <button class="zoom-button" type="button" data-action="zoom-in" aria-label="Zoom in">+</button>
+        </div>
         <button class="reset-button compact" type="button" data-action="reset">Reset</button>
       </div>
       ${promotionMarkup}
@@ -84,6 +98,16 @@ export class Hud {
 
     if (target.dataset.action === "reset") {
       this.onReset?.();
+      return;
+    }
+
+    if (target.dataset.action === "zoom-in") {
+      this.onZoomIn?.();
+      return;
+    }
+
+    if (target.dataset.action === "zoom-out") {
+      this.onZoomOut?.();
       return;
     }
 

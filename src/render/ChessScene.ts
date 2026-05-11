@@ -85,7 +85,21 @@ export class ChessScene {
     this.onSquareSelect = handler;
   }
 
-  highlightSquares(selected: SquareId | null, legalTargets: SquareId[], lastMove: MoveSummary | null) {
+  zoomIn() {
+    this.controls.dollyIn(1.2);
+    this.controls.update();
+  }
+
+  zoomOut() {
+    this.controls.dollyOut(1.2);
+    this.controls.update();
+  }
+
+  highlightSquares(
+    selected: SquareId | null,
+    legalTargets: SquareId[],
+    lastMove: MoveSummary | null
+  ) {
     const legalSet = new Set(legalTargets);
 
     for (const [square, mesh] of this.squareMeshes) {

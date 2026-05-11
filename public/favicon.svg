@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Cedar Chess">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#2a1d15" />
+      <stop offset="100%" stop-color="#120d0a" />
+    </linearGradient>
+    <linearGradient id="wood" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f2d6aa" />
+      <stop offset="100%" stop-color="#bb7840" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)" />
+  <rect x="18" y="18" width="92" height="92" rx="20" fill="none" stroke="#5c3d28" stroke-width="3" />
+  <path
+    d="M64 20 72 31 66 37 76 44 68 54 82 66 75 76 80 92 48 92 53 76 46 66 60 54 52 44 62 37 56 31Z"
+    fill="url(#wood)"
+    stroke="#f7e9cf"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <rect x="43" y="95" width="42" height="8" rx="4" fill="#e9c99a" />
+</svg>

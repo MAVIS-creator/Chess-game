@@ -331,6 +331,31 @@ h1 {
   box-shadow: none;
 }
 
+.zoom-controls {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 215, 160, 0.1);
+  background: rgba(15, 11, 9, 0.76);
+  backdrop-filter: blur(14px);
+}
+
+.zoom-button {
+  appearance: none;
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 1px solid rgba(255, 215, 160, 0.15);
+  border-radius: 999px;
+  background: rgba(31, 22, 18, 0.96);
+  color: #f6ebdc;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .promotion-panel {
   position: absolute;
   left: 1rem;

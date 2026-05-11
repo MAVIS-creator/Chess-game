@@ -209,6 +209,14 @@ const startGame = async () => {
     void syncAndRunBotTurn();
   });
 
+  hud.bindZoomIn(() => {
+    chessScene.zoomIn();
+  });
+
+  hud.bindZoomOut(() => {
+    chessScene.zoomOut();
+  });
+
   chessScene.setSquareSelectHandler((square) => {
     if (!aiController.canPlayerInteract()) {
       return;
