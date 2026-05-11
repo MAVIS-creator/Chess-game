@@ -349,9 +349,31 @@ export class ChessScene {
 
   private handleResize = () => {
     const { clientWidth, clientHeight } = this.mount;
+    const isPhone = clientWidth <= 640;
+
+    if (isPhone) {
+      this.camera.fov = 52;
+      this.controls.minDistance = 0.48;
+      this.controls.maxDistance = 0.92;
+      this.controls.minPolarAngle = 0.82;
+      this.controls.maxPolarAngle = 1.36;
+      this.controls.target.set(0, 0.015, 0);
+      if (this.camera.position.y < 0.4) {
+        this.camera.position.set(-0.5, 0.43, 0.02);
+      }
+    } else {
+      this.camera.fov = 45;
+      this.controls.minDistance = 0.38;
+      this.controls.maxDistance = 0.85;
+      this.controls.minPolarAngle = 0.7;
+      this.controls.maxPolarAngle = 1.42;
+      this.controls.target.set(0, 0.02, 0);
+    }
+
     this.camera.aspect = clientWidth / clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(clientWidth, clientHeight);
+    this.controls.update();
   };
 
   private handlePointerDown = (event: PointerEvent) => {

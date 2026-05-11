@@ -14,6 +14,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 #app {
@@ -25,7 +26,8 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(20rem, 28rem);
   gap: 1.5rem;
-  padding: 1.5rem;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
 }
 
 .menu-hero,
@@ -201,6 +203,7 @@ h1 {
   min-height: 100vh;
   position: relative;
   overflow: hidden;
+  touch-action: manipulation;
 }
 
 .space-stage {
@@ -245,7 +248,7 @@ h1 {
 
 .top-hud {
   position: absolute;
-  top: 1rem;
+  top: max(0.85rem, env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   width: min(46rem, calc(100vw - 2rem));
@@ -300,8 +303,8 @@ h1 {
 
 .bottom-hud {
   position: absolute;
-  right: 1rem;
-  bottom: 1rem;
+  right: max(0.85rem, env(safe-area-inset-right));
+  bottom: max(0.85rem, env(safe-area-inset-bottom));
   display: flex;
   gap: 0.75rem;
   align-items: stretch;
@@ -355,12 +358,13 @@ h1 {
   font-size: 1.2rem;
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .match-alert {
   position: absolute;
   left: 50%;
-  bottom: 5.5rem;
+  bottom: calc(max(0.85rem, env(safe-area-inset-bottom)) + 4.8rem);
   transform: translateX(-50%);
   width: min(30rem, calc(100vw - 2rem));
   padding: 1rem 1.1rem;
@@ -392,8 +396,8 @@ h1 {
 
 .promotion-panel {
   position: absolute;
-  left: 1rem;
-  bottom: 1rem;
+  left: max(0.85rem, env(safe-area-inset-left));
+  bottom: max(0.85rem, env(safe-area-inset-bottom));
   width: min(18rem, calc(100vw - 2rem));
   padding: 0.95rem 1rem;
   border-radius: 1rem;
@@ -429,6 +433,11 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .menu-hero,
+  .menu-panel {
+    min-height: auto;
+  }
+
   .menu-notes,
   .hero-footnote {
     grid-template-columns: 1fr;
@@ -448,18 +457,20 @@ h1 {
     left: 1rem;
     right: 1rem;
     flex-wrap: wrap;
+    justify-content: stretch;
   }
 }
 
 @media (max-width: 640px) {
   .menu-shell {
-    padding: 1rem;
+    gap: 1rem;
   }
 
   .menu-hero,
   .menu-panel {
     padding: 1rem;
     min-height: auto;
+    border-radius: 1.15rem;
   }
 
   .brand-mark {
@@ -472,23 +483,126 @@ h1 {
   }
 
   h1 {
-    font-size: clamp(2.6rem, 12vw, 4.2rem);
+    font-size: clamp(2.25rem, 11vw, 3.2rem);
+    line-height: 0.98;
+  }
+
+  .lede {
+    font-size: 0.98rem;
+    line-height: 1.55;
+  }
+
+  .hero-status strong,
+  .difficulty-note strong,
+  .menu-chip strong {
+    font-size: 1.02rem;
   }
 
   .top-hud {
     top: 0.75rem;
+    width: calc(100vw - 1rem);
+    gap: 0.65rem;
+  }
+
+  .turn-badge {
+    padding: 0.8rem 0.9rem;
+  }
+
+  .turn-badge strong {
+    font-size: 1.05rem;
+  }
+
+  .turn-badge p {
+    font-size: 0.92rem;
+  }
+
+  .status-pills {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .status-pills span {
+    text-align: center;
+    padding: 0.6rem 0.7rem;
+    font-size: 0.86rem;
   }
 
   .bottom-hud {
-    bottom: 1rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
   }
 
   .mini-card {
     min-width: 0;
-    flex: 1 1 100%;
+    padding: 0.7rem 0.75rem;
+  }
+
+  .mini-card strong {
+    font-size: 0.96rem;
+  }
+
+  .zoom-controls,
+  .reset-button.compact {
+    min-height: 3.2rem;
+  }
+
+  .zoom-controls {
+    justify-content: center;
+    padding: 0.35rem;
+  }
+
+  .zoom-button {
+    width: 3rem;
+    height: 3rem;
+    font-size: 1.35rem;
+  }
+
+  .reset-button.compact {
+    width: 100%;
+  }
+
+  .match-alert {
+    width: calc(100vw - 1rem);
+    bottom: calc(max(0.5rem, env(safe-area-inset-bottom)) + 10.8rem);
+    padding: 0.9rem 0.95rem;
+  }
+
+  .match-alert strong {
+    font-size: 1.02rem;
+  }
+
+  .match-alert p {
+    font-size: 0.9rem;
+  }
+
+  .promotion-panel {
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+    bottom: calc(max(0.5rem, env(safe-area-inset-bottom)) + 10.8rem);
   }
 
   .promotion-options {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .status-pills {
+    grid-template-columns: 1fr;
+  }
+
+  .bottom-hud {
+    grid-template-columns: 1fr;
+  }
+
+  .match-alert,
+  .promotion-panel {
+    bottom: calc(max(0.5rem, env(safe-area-inset-bottom)) + 16.8rem);
   }
 }
