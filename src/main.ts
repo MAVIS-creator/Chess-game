@@ -36,6 +36,7 @@ let playerName = "Player";
 const searchParams = new URLSearchParams(window.location.search);
 
 const renderMenu = () => {
+  document.body.classList.remove("game-mode");
   app.innerHTML = `
     <main class="menu-shell">
       <section class="menu-hero">
@@ -155,6 +156,7 @@ const renderGameShell = () => {
 };
 
 const startGame = async () => {
+  document.body.classList.add("game-mode");
   renderGameShell();
 
   const boardStage = document.querySelector<HTMLElement>("#board-stage");

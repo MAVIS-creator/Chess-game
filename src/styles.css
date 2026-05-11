@@ -14,6 +14,11 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.game-mode {
   overflow: hidden;
 }
 
@@ -28,6 +33,7 @@ body {
   gap: 1.5rem;
   padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
     max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  overflow-y: auto;
 }
 
 .menu-hero,
@@ -201,6 +207,7 @@ h1 {
 
 .play-shell {
   min-height: 100vh;
+  height: 100vh;
   position: relative;
   overflow: hidden;
   touch-action: manipulation;
@@ -604,5 +611,24 @@ h1 {
   .match-alert,
   .promotion-panel {
     bottom: calc(max(0.5rem, env(safe-area-inset-bottom)) + 16.8rem);
+  }
+}
+
+@media (max-width: 390px) {
+  .menu-shell {
+    padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
+      max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .menu-hero,
+  .menu-panel {
+    padding: 0.9rem;
+  }
+
+  .turn-badge,
+  .mini-card,
+  .promotion-panel,
+  .match-alert {
+    border-radius: 0.95rem;
   }
 }
