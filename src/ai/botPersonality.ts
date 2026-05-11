@@ -92,6 +92,10 @@ export interface DifficultyConfig {
   temperature: number;
   commentaryFallback: string;
   selectionBias: "weak" | "balanced" | "strong" | "attacking";
+  maxEvalLossCp: number;
+  singularMarginCp: number;
+  maxCandidateCount: number;
+  forceBestMove: boolean;
 }
 
 export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
@@ -100,35 +104,55 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     multiPv: 5,
     temperature: 0.9,
     commentaryFallback: "I will make my move.",
-    selectionBias: "weak"
+    selectionBias: "weak",
+    maxEvalLossCp: 160,
+    singularMarginCp: 220,
+    maxCandidateCount: 5,
+    forceBestMove: false
   },
   Normal: {
     depth: 11,
     multiPv: 5,
     temperature: 0.65,
     commentaryFallback: "Your turn shaped the board. Here is mine.",
-    selectionBias: "balanced"
+    selectionBias: "balanced",
+    maxEvalLossCp: 90,
+    singularMarginCp: 180,
+    maxCandidateCount: 4,
+    forceBestMove: false
   },
   Hard: {
-    depth: 14,
+    depth: 15,
     multiPv: 4,
     temperature: 0.4,
     commentaryFallback: "You left a seam. I am pressing it.",
-    selectionBias: "strong"
+    selectionBias: "strong",
+    maxEvalLossCp: 45,
+    singularMarginCp: 130,
+    maxCandidateCount: 3,
+    forceBestMove: false
   },
   "Boss Mode": {
-    depth: 16,
-    multiPv: 4,
-    temperature: 0.25,
+    depth: 18,
+    multiPv: 3,
+    temperature: 0.18,
     commentaryFallback: "You gave me a target. I accepted.",
-    selectionBias: "attacking"
+    selectionBias: "attacking",
+    maxEvalLossCp: 18,
+    singularMarginCp: 70,
+    maxCandidateCount: 2,
+    forceBestMove: false
   },
   "Nightmare Mode": {
-    depth: 18,
-    multiPv: 5,
-    temperature: 0.15,
+    depth: 20,
+    multiPv: 3,
+    temperature: 0.08,
     commentaryFallback: "Pressure first. Mercy later.",
-    selectionBias: "attacking"
+    selectionBias: "attacking",
+    maxEvalLossCp: 8,
+    singularMarginCp: 35,
+    maxCandidateCount: 1,
+    forceBestMove: true
   }
 };
 

@@ -32,6 +32,16 @@ VITE_AI_PROVIDER=groq
 VITE_GROQ_API_KEY=your_key_here
 ```
 
+For the hardest current setup in this client build:
+
+```bash
+VITE_AI_PROVIDER=groq
+VITE_GROQ_API_KEY=your_key_here
+VITE_GROQ_MODEL=llama-3.1-8b-instant
+```
+
+Then start the match with `Nightmare Mode`. In that mode, the bot now collapses the safe move list to the engine-best line unless there is a true near-tie, so the LLM mostly adds personality and commentary instead of weakening the move.
+
 Important:
 
 - `VITE_` variables are exposed to the browser bundle

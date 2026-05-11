@@ -38,6 +38,54 @@ const neutralFallback = (
   usedFallback: true
 });
 
+const scoreGapFromBest = (best: EngineCandidateMove, candidate: EngineCandidateMove) => {
+  if (best.mateIn !== null || candidate.mateIn !== null) {
+    if (best.mateIn !== null && candidate.mateIn !== null) {
+      return Math.abs(best.mateIn - candidate.mateIn) * 1000;
+    }
+
+    return 100000;
+  }
+
+  return Math.max(0, best.score - candidate.score);
+};
+
+const buildSafeCandidateSet = (
+  difficulty: BotDifficulty,
+  candidateMoves: EngineCandidateMove[]
+) => {
+  const config = DIFFICULTY_CONFIG[difficulty];
+  const ranked = [...candidateMoves];
+  const best = ranked[0];
+  const second = ranked[1];
+
+  if (!best) {
+    return [];
+  }
+
+  if (config.forceBestMove || ranked.length === 1) {
+    return [best];
+  }
+
+  if (best.mateIn !== null && best.mateIn > 0) {
+    return [best];
+  }
+
+  if (best.mateIn !== null && best.mateIn < 0) {
+    return ranked.slice(0, Math.min(2, ranked.length));
+  }
+
+  if (second && scoreGapFromBest(best, second) >= config.singularMarginCp) {
+    return [best];
+  }
+
+  const safe = ranked
+    .filter((candidate) => scoreGapFromBest(best, candidate) <= config.maxEvalLossCp)
+    .slice(0, config.maxCandidateCount);
+
+  return safe.length > 0 ? safe : [best];
+};
+
 const openAiCompatiblePayload = (
   request: BotDecisionRequest,
   model: string,
@@ -52,7 +100,8 @@ const openAiCompatiblePayload = (
       role: "user",
       content: buildBotUserPrompt({
         ...request,
-        candidateMoves: request.candidateMoves
+        candidateMoves: request.candidateMoves,
+        forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
       })
     }
   ]
@@ -66,16 +115,21 @@ export class BotDecisionLayer {
       throw new Error("No candidate moves were provided to the decision layer.");
     }
 
-    const fallback = neutralFallback(request.difficulty, request.candidateMoves);
+    const safeCandidateMoves = buildSafeCandidateSet(request.difficulty, request.candidateMoves);
+    const strictRequest: BotDecisionRequest = {
+      ...request,
+      candidateMoves: safeCandidateMoves
+    };
+    const fallback = neutralFallback(request.difficulty, safeCandidateMoves);
 
     try {
       switch (this.provider) {
         case "groq":
-          return await this.callGroq(request, fallback);
+          return await this.callGroq(strictRequest, fallback);
         case "openrouter":
-          return await this.callOpenRouter(request, fallback);
+          return await this.callOpenRouter(strictRequest, fallback);
         case "gemini":
-          return await this.callGemini(request, fallback);
+          return await this.callGemini(strictRequest, fallback);
         default:
           return fallback;
       }
@@ -190,7 +244,14 @@ export class BotDecisionLayer {
           contents: [
             {
               role: "user",
-              parts: [{ text: buildBotUserPrompt(request) }]
+              parts: [
+                {
+                  text: buildBotUserPrompt({
+                    ...request,
+                    forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+                  })
+                }
+              ]
             }
           ]
         })
