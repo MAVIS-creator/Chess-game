@@ -19,6 +19,11 @@ export interface BotHudState {
   lastStyle: string;
   source: "stockfish" | "llm";
   playerName: string;
+  playerColor: PieceColor;
+  botColor: PieceColor;
+  playerTimeMs: number;
+  aiTimeMs: number;
+  timedOutSide: PieceColor | null;
 }
 
 export interface PieceDescriptor {

@@ -16,7 +16,8 @@ const MATE_SCAN_BY_DIFFICULTY: Record<BotDifficulty, number | null> = {
   Normal: null,
   Hard: 3,
   "Boss Mode": 5,
-  "Nightmare Mode": 7
+  "Nightmare Mode": 7,
+  Impossible: 9
 };
 
 export interface BotRuntimeState {
@@ -30,6 +31,11 @@ export interface BotRuntimeState {
   lastStyle: string;
   source: "stockfish" | "llm";
   playerName: string;
+  playerColor: PieceColor;
+  botColor: PieceColor;
+  playerTimeMs: number;
+  aiTimeMs: number;
+  timedOutSide: PieceColor | null;
 }
 
 export class AiMoveController {
@@ -37,17 +43,30 @@ export class AiMoveController {
   private readonly decisionLayer = new BotDecisionLayer();
   private difficulty: BotDifficulty = DEFAULT_DIFFICULTY;
   private personality: BotPersonalityProfile = DEFAULT_PERSONALITY;
-  private readonly botColor: PieceColor = "black";
-  private readonly playerColor: PieceColor = "white";
+  private readonly botColor: PieceColor;
+  private readonly playerColor: PieceColor;
   private thinking = false;
   private thinkingStage: string | null = null;
   private commentary = "The board is waiting.";
   private lastStyle = "opening";
   private source: "stockfish" | "llm" = "stockfish";
   private playerName = "Player";
+  private playerTimeMs = 0;
+  private aiTimeMs = 0;
+  private timedOutSide: PieceColor | null = null;
+  private canContinueTurn: (() => boolean) | null = null;
   private stateListener: (() => void) | null = null;
 
-  constructor(private readonly controller: ChessController) {}
+  constructor(
+    private readonly controller: ChessController,
+    options?: {
+      playerColor?: PieceColor;
+      botColor?: PieceColor;
+    }
+  ) {
+    this.playerColor = options?.playerColor ?? "white";
+    this.botColor = options?.botColor ?? (this.playerColor === "white" ? "black" : "white");
+  }
 
   getState(): BotRuntimeState {
     return {
@@ -60,7 +79,12 @@ export class AiMoveController {
       thinkingStage: this.thinkingStage,
       lastStyle: this.lastStyle,
       source: this.source,
-      playerName: this.playerName
+      playerName: this.playerName,
+      playerColor: this.playerColor,
+      botColor: this.botColor,
+      playerTimeMs: this.playerTimeMs,
+      aiTimeMs: this.aiTimeMs,
+      timedOutSide: this.timedOutSide
     };
   }
 
@@ -71,6 +95,17 @@ export class AiMoveController {
   setPlayerName(playerName: string) {
     this.playerName = playerName.trim() || "Player";
     this.notify();
+  }
+
+  setClockState(playerTimeMs: number, aiTimeMs: number, timedOutSide: PieceColor | null) {
+    this.playerTimeMs = playerTimeMs;
+    this.aiTimeMs = aiTimeMs;
+    this.timedOutSide = timedOutSide;
+    this.notify();
+  }
+
+  setTurnGuard(guard: (() => boolean) | null) {
+    this.canContinueTurn = guard;
   }
 
   setDifficulty(difficulty: BotDifficulty) {
@@ -118,17 +153,24 @@ export class AiMoveController {
       await this.pause(320);
       this.thinkingStage = "Scanning for forced mate";
       this.notify();
+      if (!this.canProceed()) {
+        return false;
+      }
       const mateScanDepth = MATE_SCAN_BY_DIFFICULTY[this.difficulty];
-      if (mateScanDepth) {
+      if (mateScanDepth && DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs > 0) {
         const mateScan = await this.engine.analyzePosition({
           fen: this.controller.getFen(),
           depth: DIFFICULTY_CONFIG[this.difficulty].depth,
           multiPv: 1,
-          mate: mateScanDepth
+          mate: mateScanDepth,
+          timeoutMs: DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs
         });
 
         const matingMove = mateScan.candidates[0];
         if (matingMove?.mateIn !== null && matingMove.mateIn > 0) {
+          if (!this.canProceed()) {
+            return false;
+          }
           this.thinkingStage = `Forcing mate in ${matingMove.mateIn}`;
           this.notify();
           const executed = this.tryBestMove(mateScan.bestMove, {
@@ -148,14 +190,21 @@ export class AiMoveController {
 
       this.thinkingStage = "Analyzing lines";
       this.notify();
+      if (!this.canProceed()) {
+        return false;
+      }
       const analysis = await this.engine.analyzePosition({
         fen: this.controller.getFen(),
         depth: DIFFICULTY_CONFIG[this.difficulty].depth,
-        multiPv: DIFFICULTY_CONFIG[this.difficulty].multiPv
+        multiPv: DIFFICULTY_CONFIG[this.difficulty].multiPv,
+        timeoutMs: DIFFICULTY_CONFIG[this.difficulty].searchTimeoutMs
       });
 
       this.thinkingStage = "Choosing a move";
       this.notify();
+      if (!this.canProceed()) {
+        return false;
+      }
       const decision = await this.decisionLayer.chooseMove({
         fen: this.controller.getFen(),
         moveHistory: this.controller.getMoveHistoryUci(),
@@ -169,6 +218,9 @@ export class AiMoveController {
       await this.pause(220);
       this.thinkingStage = "Finalizing";
       this.notify();
+      if (!this.canProceed()) {
+        return false;
+      }
       const executed = this.tryDecision(decision) ?? this.tryBestMove(analysis.bestMove, decision);
       this.commentary = executed.commentary;
       this.lastStyle = executed.style;
@@ -222,5 +274,9 @@ export class AiMoveController {
     return new Promise<void>((resolve) => {
       window.setTimeout(resolve, durationMs);
     });
+  }
+
+  private canProceed() {
+    return this.canContinueTurn?.() ?? true;
   }
 }

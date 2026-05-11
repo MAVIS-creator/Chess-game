@@ -207,6 +207,30 @@ const difficultyInstruction = (difficulty: BotDifficulty) => {
         TONE:
         Cold, minimal, lethal, and confident.
       `;
+    case "Impossible":
+      return `
+        MODE OBJECTIVE:
+        Final boss chess. Maximum engine obedience. No softness.
+
+        MOVE SELECTION:
+        Choose the engine-best move only when forceBestMove is true.
+        If a forced mate exists, choose the fastest forced mate.
+        Convert winning positions cleanly.
+        Defend losing positions with the strongest practical resource only.
+        Never trade strength for style.
+
+        PRIORITY ORDER:
+        1. Forced mate
+        2. Avoiding forced mate
+        3. Engine-best move
+        4. Checks and forcing sequences
+        5. Major material gain
+        6. King pressure and tactical collapse
+        7. Clean endgame conversion
+
+        TONE:
+        Cold, controlled, and merciless.
+      `;
   }
 };
 

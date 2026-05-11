@@ -1,9 +1,15 @@
 import "./styles.css";
-import { BOT_DIFFICULTIES, DEFAULT_DIFFICULTY, getPersonalityForDifficulty, type BotDifficulty } from "./ai/botPersonality";
+import {
+  BOT_DIFFICULTIES,
+  DEFAULT_DIFFICULTY,
+  DIFFICULTY_CONFIG,
+  getPersonalityForDifficulty,
+  type BotDifficulty
+} from "./ai/botPersonality";
 import { ChessSoundboard } from "./audio/chessSounds";
 import { AiMoveController } from "./game/aiMoveController";
 import { ChessController } from "./game/ChessController";
-import type { PieceRole } from "./game/types";
+import type { PieceColor, PieceRole } from "./game/types";
 import { ChessScene } from "./render/ChessScene";
 import { Hud } from "./ui/Hud";
 
@@ -27,6 +33,7 @@ if (!app) {
 const soundboard = new ChessSoundboard();
 let selectedDifficulty: BotDifficulty = DEFAULT_DIFFICULTY;
 let playerName = "Player";
+let playerColor: PieceColor = "white";
 const searchParams = new URLSearchParams(window.location.search);
 
 const renderMenu = () => {
@@ -85,6 +92,13 @@ const renderMenu = () => {
             ).join("")}
           </select>
         </label>
+        <label class="select-block">
+          <span>Play as</span>
+          <select id="menu-color">
+            <option value="white" ${playerColor === "white" ? "selected" : ""}>White · Nightmare Challenge</option>
+            <option value="black" ${playerColor === "black" ? "selected" : ""}>Black · Crimson Assault</option>
+          </select>
+        </label>
         <div class="difficulty-note">
           <span>Current challenge</span>
           <strong>${selectedDifficulty}</strong>
@@ -96,6 +110,7 @@ const renderMenu = () => {
   `;
 
   const difficultySelect = document.querySelector<HTMLSelectElement>("#menu-difficulty");
+  const colorSelect = document.querySelector<HTMLSelectElement>("#menu-color");
   const playerNameInput = document.querySelector<HTMLInputElement>("#menu-player-name");
   const difficultyNote = document.querySelector<HTMLElement>(".difficulty-note");
   const startButton = document.querySelector<HTMLButtonElement>("#start-match");
@@ -113,6 +128,10 @@ const renderMenu = () => {
 
   playerNameInput?.addEventListener("input", () => {
     playerName = playerNameInput.value.trim() || "Player";
+  });
+
+  colorSelect?.addEventListener("change", () => {
+    playerColor = colorSelect.value as PieceColor;
   });
 
   startButton?.addEventListener("click", () => {
@@ -134,6 +153,8 @@ const difficultyDescription = (difficulty: BotDifficulty) => {
       return "Strong, aggressive, and punishing.";
     case "Nightmare Mode":
       return "Extremely hard with heavy tactical pressure.";
+    case "Impossible":
+      return "Final boss chess. Twenty-second clocks and pure engine punishment.";
   }
 };
 
@@ -158,15 +179,54 @@ const startGame = async () => {
 
   const chessScene = new ChessScene(boardStage);
   const controller = new ChessController();
-  const aiController = new AiMoveController(controller);
+  const aiController = new AiMoveController(controller, {
+    playerColor,
+    botColor: playerColor === "white" ? "black" : "white"
+  });
   const hud = new Hud(hudRoot);
   let lastAudibleMoveCount = 0;
   let lastAlertSignature = "";
+  const baseClockMs = DIFFICULTY_CONFIG[selectedDifficulty].clockSeconds * 1000;
+  const remainingMs: Record<PieceColor, number> = {
+    white: baseClockMs,
+    black: baseClockMs
+  };
+  let timedOutSide: PieceColor | null = null;
+  let lastTickAt = performance.now();
 
   aiController.setPlayerName(playerName);
   aiController.setDifficulty(selectedDifficulty);
   aiController.setPersonality(getPersonalityForDifficulty(selectedDifficulty).id);
+  aiController.setTurnGuard(() => timedOutSide === null);
+  aiController.setClockState(
+    remainingMs[playerColor],
+    remainingMs[playerColor === "white" ? "black" : "white"],
+    timedOutSide
+  );
   aiController.reset();
+
+  const tickClock = () => {
+    const snapshot = controller.getSnapshot();
+    const now = performance.now();
+    const delta = now - lastTickAt;
+    lastTickAt = now;
+
+    if (!snapshot.gameOver && !timedOutSide && !snapshot.pendingPromotion) {
+      const activeColor = snapshot.currentTurn;
+      remainingMs[activeColor] = Math.max(0, remainingMs[activeColor] - delta);
+      if (remainingMs[activeColor] <= 0) {
+        timedOutSide = activeColor;
+      }
+    }
+
+    aiController.setClockState(
+      remainingMs[playerColor],
+      remainingMs[playerColor === "white" ? "black" : "white"],
+      timedOutSide
+    );
+
+    window.requestAnimationFrame(tickClock);
+  };
 
   const sync = () => {
     const snapshot = controller.getSnapshot();
@@ -184,7 +244,8 @@ const startGame = async () => {
 
     const nextAlertSignature = `${snapshot.moveCount}:${snapshot.statusText}:${snapshot.inCheck}:${snapshot.gameOver}`;
     if (nextAlertSignature !== lastAlertSignature) {
-      if (snapshot.gameOver) {
+      if (timedOutSide) {
+      } else if (snapshot.gameOver) {
         if (snapshot.statusText.toLowerCase().includes("checkmate")) {
           soundboard.playCue("checkmate");
         } else if (snapshot.statusText.toLowerCase().includes("stalemate")) {
@@ -221,6 +282,15 @@ const startGame = async () => {
     controller.resetGame();
     aiController.reset();
     lastAudibleMoveCount = 0;
+    remainingMs.white = baseClockMs;
+    remainingMs.black = baseClockMs;
+    timedOutSide = null;
+    lastTickAt = performance.now();
+    aiController.setClockState(
+      remainingMs[playerColor],
+      remainingMs[playerColor === "white" ? "black" : "white"],
+      timedOutSide
+    );
     sync();
   });
 
@@ -239,7 +309,7 @@ const startGame = async () => {
   });
 
   chessScene.setSquareSelectHandler((square) => {
-    if (!aiController.canPlayerInteract()) {
+    if (timedOutSide || !aiController.canPlayerInteract()) {
       return;
     }
 
@@ -253,6 +323,11 @@ const startGame = async () => {
   try {
     await chessScene.loadScene();
     sync();
+    lastTickAt = performance.now();
+    window.requestAnimationFrame(tickClock);
+    if (controller.getSnapshot().currentTurn === (playerColor === "white" ? "black" : "white")) {
+      void syncAndRunBotTurn();
+    }
 
     if (import.meta.env.DEV) {
       window.__WOODEN_CHESS_DEBUG__ = {

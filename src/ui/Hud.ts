@@ -1,6 +1,12 @@
 import type { BotHudState, GameSnapshot, PieceRole } from "../game/types";
 
 const PROMOTION_CHOICES: PieceRole[] = ["queen", "rook", "bishop", "knight"];
+const formatClock = (timeMs: number) => {
+  const totalSeconds = Math.max(0, Math.ceil(timeMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+};
 
 export class Hud {
   private onReset: (() => void) | null = null;
@@ -29,21 +35,27 @@ export class Hud {
   }
 
   renderStatus(snapshot: GameSnapshot, botState: BotHudState) {
-    const humanInCheck = snapshot.inCheck && snapshot.currentTurn === "white";
-    const aiInCheck = snapshot.inCheck && snapshot.currentTurn === "black";
+    const humanInCheck = snapshot.inCheck && snapshot.currentTurn === botState.playerColor;
+    const aiInCheck = snapshot.inCheck && snapshot.currentTurn === botState.botColor;
+    const timeoutWinner =
+      botState.timedOutSide === null ? null : botState.timedOutSide === botState.playerColor ? "AI" : botState.playerName;
     const turnTitle =
-      snapshot.gameOver
+      timeoutWinner
+        ? "Time expired"
+        : snapshot.gameOver
         ? "Match finished"
-        : snapshot.currentTurn === "white"
+        : snapshot.currentTurn === botState.playerColor
         ? `${botState.playerName}'s turn`
         : botState.thinking
           ? botState.thinkingStage ?? "AI is thinking"
           : "AI to move";
 
     const turnSubtitle =
-      snapshot.gameOver
+      timeoutWinner
+        ? `${timeoutWinner} wins on time.`
+        : snapshot.gameOver
         ? snapshot.statusText
-        : snapshot.currentTurn === "white"
+        : snapshot.currentTurn === botState.playerColor
         ? snapshot.selectedSquare
           ? snapshot.legalTargets.length > 0
             ? `Selected ${snapshot.selectedSquare.toUpperCase()}. Green markers show where it can move.`
@@ -59,7 +71,16 @@ export class Hud {
             ? "The AI king is under pressure."
           : "Watch the reply.";
 
-    const alertMarkup = snapshot.gameOver
+    const alertMarkup = timeoutWinner
+      ? `
+        <div class="match-alert match-alert-end">
+          <span class="hero-label">Time Over</span>
+          <strong>${timeoutWinner} wins on time.</strong>
+          <p>Press reset to start another clocked match.</p>
+          <button class="reset-button" type="button" data-action="reset">Play again</button>
+        </div>
+      `
+      : snapshot.gameOver
       ? `
         <div class="match-alert match-alert-end">
           <span class="hero-label">Game Over</span>
@@ -113,6 +134,14 @@ export class Hud {
         </div>
       </div>
       <div class="bottom-hud">
+        <div class="mini-card">
+          <span>${botState.playerColor === "white" ? `${botState.playerName} · White` : `${botState.playerName} · Black`}</span>
+          <strong>${formatClock(botState.playerTimeMs)}</strong>
+        </div>
+        <div class="mini-card">
+          <span>${botState.botColor === "white" ? "AI · White" : "AI · Black"}</span>
+          <strong>${formatClock(botState.aiTimeMs)}</strong>
+        </div>
         <div class="mini-card">
           <span>Last move</span>
           <strong>${snapshot.lastMove ? `${snapshot.lastMove.from.toUpperCase()} → ${snapshot.lastMove.to.toUpperCase()}` : "Opening position"}</strong>

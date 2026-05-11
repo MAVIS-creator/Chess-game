@@ -1,4 +1,10 @@
-export type BotDifficulty = "Easy" | "Normal" | "Hard" | "Boss Mode" | "Nightmare Mode";
+export type BotDifficulty =
+  | "Easy"
+  | "Normal"
+  | "Hard"
+  | "Boss Mode"
+  | "Nightmare Mode"
+  | "Impossible";
 export type BotProvider = "disabled" | "groq" | "openrouter" | "gemini";
 
 export interface BotPersonalityProfile {
@@ -97,7 +103,8 @@ export const BOT_DIFFICULTIES: BotDifficulty[] = [
   "Normal",
   "Hard",
   "Boss Mode",
-  "Nightmare Mode"
+  "Nightmare Mode",
+  "Impossible"
 ];
 
 export interface DifficultyConfig {
@@ -110,6 +117,9 @@ export interface DifficultyConfig {
   singularMarginCp: number;
   maxCandidateCount: number;
   forceBestMove: boolean;
+  clockSeconds: number;
+  searchTimeoutMs: number;
+  mateScanTimeoutMs: number;
 }
 
 export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
@@ -122,7 +132,10 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxEvalLossCp: 160,
     singularMarginCp: 220,
     maxCandidateCount: 5,
-    forceBestMove: false
+    forceBestMove: false,
+    clockSeconds: 60,
+    searchTimeoutMs: 1600,
+    mateScanTimeoutMs: 0
   },
   Normal: {
     depth: 11,
@@ -133,7 +146,10 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxEvalLossCp: 90,
     singularMarginCp: 180,
     maxCandidateCount: 4,
-    forceBestMove: false
+    forceBestMove: false,
+    clockSeconds: 50,
+    searchTimeoutMs: 1900,
+    mateScanTimeoutMs: 0
   },
   Hard: {
     depth: 15,
@@ -144,7 +160,10 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxEvalLossCp: 45,
     singularMarginCp: 130,
     maxCandidateCount: 3,
-    forceBestMove: false
+    forceBestMove: false,
+    clockSeconds: 40,
+    searchTimeoutMs: 2300,
+    mateScanTimeoutMs: 900
   },
   "Boss Mode": {
     depth: 20,
@@ -155,7 +174,10 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxEvalLossCp: 10,
     singularMarginCp: 50,
     maxCandidateCount: 2,
-    forceBestMove: false
+    forceBestMove: false,
+    clockSeconds: 30,
+    searchTimeoutMs: 2800,
+    mateScanTimeoutMs: 1100
   },
   "Nightmare Mode": {
     depth: 24,
@@ -166,20 +188,38 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxEvalLossCp: 0,
     singularMarginCp: 20,
     maxCandidateCount: 1,
-    forceBestMove: true
+    forceBestMove: true,
+    clockSeconds: 25,
+    searchTimeoutMs: 3400,
+    mateScanTimeoutMs: 1200
+  },
+  Impossible: {
+    depth: 26,
+    multiPv: 1,
+    temperature: 0,
+    commentaryFallback: "Your clock bleeds before the board does.",
+    selectionBias: "attacking",
+    maxEvalLossCp: 0,
+    singularMarginCp: 12,
+    maxCandidateCount: 1,
+    forceBestMove: true,
+    clockSeconds: 20,
+    searchTimeoutMs: 4200,
+    mateScanTimeoutMs: 1400
   }
 };
 
 export const DEFAULT_PROVIDER: BotProvider = "openrouter";
 export const DEFAULT_PERSONALITY = BOT_PERSONALITIES[2];
-export const DEFAULT_DIFFICULTY: BotDifficulty = "Normal";
+export const DEFAULT_DIFFICULTY: BotDifficulty = "Impossible";
 
 export const DIFFICULTY_PERSONALITY_MAP: Record<BotDifficulty, string> = {
   Easy: "sparrow",
   Normal: "mentor",
   Hard: "sentinel",
   "Boss Mode": "sovereign",
-  "Nightmare Mode": "warlord"
+  "Nightmare Mode": "warlord",
+  Impossible: "warlord"
 };
 
 export const getPersonalityForDifficulty = (difficulty: BotDifficulty) =>

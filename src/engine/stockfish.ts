@@ -6,6 +6,7 @@ export interface EngineAnalysisRequest {
   depth: number;
   multiPv: number;
   mate?: number | null;
+  timeoutMs?: number;
 }
 
 export interface EngineAnalysisResult {
@@ -22,6 +23,7 @@ export class StockfishEngine {
   private worker: Worker | null = null;
   private isReady = false;
   private readyPromise: Promise<void> | null = null;
+  private searchRequestId = 0;
   private searchPromise:
     | {
         resolve: (value: EngineAnalysisResult) => void;
@@ -38,6 +40,7 @@ export class StockfishEngine {
     }
 
     return new Promise<EngineAnalysisResult>((resolve, reject) => {
+      const requestId = ++this.searchRequestId;
       this.searchPromise = {
         resolve,
         reject,
@@ -47,6 +50,13 @@ export class StockfishEngine {
       this.post("ucinewgame");
       this.post("position fen " + request.fen);
       this.post(`setoption name MultiPV value ${request.multiPv}`);
+      if (request.timeoutMs && request.timeoutMs > 0) {
+        window.setTimeout(() => {
+          if (this.searchPromise && requestId === this.searchRequestId) {
+            this.post("stop");
+          }
+        }, request.timeoutMs);
+      }
       this.post(
         request.mate && request.mate > 0
           ? `go mate ${request.mate}`
