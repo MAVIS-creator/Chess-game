@@ -46,6 +46,8 @@ export interface MoveSummary {
   to: SquareId;
 }
 
+export type MoveSoundCue = "move" | "capture";
+
 export interface PromotionState {
   from: SquareId;
   to: SquareId;
@@ -57,6 +59,7 @@ export interface GameSnapshot {
   selectedSquare: SquareId | null;
   legalTargets: SquareId[];
   lastMove: MoveSummary | null;
+  lastMoveSoundCue: MoveSoundCue | null;
   pendingPromotion: PromotionState | null;
   statusText: string;
   moveCount: number;

@@ -7,7 +7,8 @@ import type {
   PieceColor,
   PieceRole,
   PromotionState,
-  SquareId
+  SquareId,
+  MoveSoundCue
 } from "./types";
 
 const CHESS_PROMOTION_MAP: Record<PieceRole, "q" | "r" | "b" | "n"> = {
@@ -40,6 +41,7 @@ export class ChessController {
   private selectedSquare: SquareId | null = null;
   private legalTargets: SquareId[] = [];
   private lastMove: MoveSummary | null = null;
+  private lastMoveSoundCue: MoveSoundCue | null = null;
   private pendingPromotion: PromotionState | null = null;
 
   constructor() {
@@ -58,6 +60,7 @@ export class ChessController {
     this.selectedSquare = null;
     this.legalTargets = [];
     this.lastMove = null;
+    this.lastMoveSoundCue = null;
     this.pendingPromotion = null;
   }
 
@@ -136,6 +139,7 @@ export class ChessController {
       selectedSquare: this.selectedSquare,
       legalTargets: [...this.legalTargets],
       lastMove: this.lastMove ? { ...this.lastMove } : null,
+      lastMoveSoundCue: this.lastMoveSoundCue,
       pendingPromotion: this.pendingPromotion ? { ...this.pendingPromotion } : null,
       statusText: this.getStatusText(),
       moveCount: this.chess.history().length,
@@ -161,18 +165,22 @@ export class ChessController {
       throw new Error(`No piece found at ${from} while applying move.`);
     }
 
+    let moveSoundCue: MoveSoundCue = "move";
+
     if (move.flags.includes("e")) {
       const capturedSquare = `${to[0]}${from[1]}` as SquareId;
       const captured = this.getPieceAtSquare(capturedSquare);
       if (captured) {
         captured.square = null;
         captured.captured = true;
+        moveSoundCue = "capture";
       }
     } else if (move.flags.includes("c")) {
       const captured = this.getPieceAtSquare(to);
       if (captured) {
         captured.square = null;
         captured.captured = true;
+        moveSoundCue = "capture";
       }
     }
 
@@ -195,6 +203,7 @@ export class ChessController {
     }
 
     this.lastMove = { from, to };
+    this.lastMoveSoundCue = moveSoundCue;
     this.selectedSquare = null;
     this.legalTargets = [];
     this.pendingPromotion = null;

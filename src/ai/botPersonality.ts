@@ -11,6 +11,28 @@ export interface BotPersonalityProfile {
 
 export const BOT_PERSONALITIES: BotPersonalityProfile[] = [
   {
+    id: "sparrow",
+    name: "Soft Sparrow",
+    tone: "gentle and forgiving",
+    description: "A light-touch opponent that prefers simple development and low-pressure play.",
+    rules: [
+      "Sound relaxed and beginner-friendly.",
+      "Prefer calm, non-forcing moves when they are available.",
+      "Do not sound cruel or dominant."
+    ]
+  },
+  {
+    id: "mentor",
+    name: "Quiet Mentor",
+    tone: "calm and instructional",
+    description: "A composed club-strength rival that values tidy development and balanced plans.",
+    rules: [
+      "Sound patient and controlled.",
+      "Favor principled development, king safety, and stable structures.",
+      "Keep commentary short and composed."
+    ]
+  },
+  {
     id: "sovereign",
     name: "Ivory Sovereign",
     tone: "regal and oppressive",
@@ -41,6 +63,17 @@ export const BOT_PERSONALITIES: BotPersonalityProfile[] = [
       "Speak plainly, firmly, and with no wasted words.",
       "Prefer resilient moves that improve structure, king safety, and long-term pressure.",
       "Project patience and certainty."
+    ]
+  },
+  {
+    id: "warlord",
+    name: "Crimson Warlord",
+    tone: "aggressive and merciless",
+    description: "A punishing finisher that hunts initiative, pressure, and tactical collapse.",
+    rules: [
+      "Sound fierce, sharp, and confident.",
+      "Favor forcing play, tactical threats, and direct punishment.",
+      "Keep commentary intense and concise."
     ]
   }
 ];
@@ -100,5 +133,17 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
 };
 
 export const DEFAULT_PROVIDER: BotProvider = "disabled";
-export const DEFAULT_PERSONALITY = BOT_PERSONALITIES[0];
+export const DEFAULT_PERSONALITY = BOT_PERSONALITIES[2];
 export const DEFAULT_DIFFICULTY: BotDifficulty = "Normal";
+
+export const DIFFICULTY_PERSONALITY_MAP: Record<BotDifficulty, string> = {
+  Easy: "sparrow",
+  Normal: "mentor",
+  Hard: "sentinel",
+  "Boss Mode": "sovereign",
+  "Nightmare Mode": "warlord"
+};
+
+export const getPersonalityForDifficulty = (difficulty: BotDifficulty) =>
+  BOT_PERSONALITIES.find((personality) => personality.id === DIFFICULTY_PERSONALITY_MAP[difficulty]) ??
+  DEFAULT_PERSONALITY;
