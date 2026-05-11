@@ -157,7 +157,9 @@ h1 {
 }
 
 .hero-status,
-.controls-card {
+.controls-card,
+.bot-panel,
+.select-block {
   padding: 1rem 1.1rem;
   border-radius: 1rem;
   border: 1px solid rgba(255, 215, 160, 0.08);
@@ -173,10 +175,61 @@ h1 {
 }
 
 .hero-status p,
-.controls-card p {
+.controls-card p,
+.bot-panel p {
   margin: 0.7rem 0 0;
   color: rgba(246, 235, 220, 0.72);
   line-height: 1.6;
+}
+
+.bot-panel.is-thinking {
+  border-color: rgba(95, 160, 111, 0.3);
+  background: rgba(45, 82, 49, 0.18);
+}
+
+.bot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.bot-meta span {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 235, 205, 0.08);
+  color: rgba(246, 235, 220, 0.75);
+  font-size: 0.82rem;
+}
+
+.bot-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.select-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.select-block span {
+  display: block;
+  color: rgba(246, 235, 220, 0.62);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+}
+
+.select-block select {
+  appearance: none;
+  border: 1px solid rgba(255, 215, 160, 0.18);
+  background: rgba(21, 17, 14, 0.9);
+  color: #f6ebdc;
+  border-radius: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  font: inherit;
 }
 
 .hud-cluster.is-alert .hero-status {
@@ -260,5 +313,10 @@ h1 {
     right: 1rem;
     left: 1rem;
     bottom: 0.75rem;
+  }
+
+  .bot-config-grid,
+  .promotion-options {
+    grid-template-columns: 1fr;
   }
 }
