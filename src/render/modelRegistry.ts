@@ -10,6 +10,7 @@ export interface PieceView {
   promotionClone: THREE.Object3D | null;
   currentSquare: SquareId | null;
   currentRole: PieceRole;
+  isCaptured: boolean;
 }
 
 export interface ModelRegistry {
@@ -70,7 +71,8 @@ export const buildModelRegistry = (
       baseY: object.position.y,
       promotionClone: null,
       currentSquare: descriptor.square,
-      currentRole: descriptor.role
+      currentRole: descriptor.role,
+      isCaptured: false
     });
 
     const key = templateKey(descriptor.color, descriptor.role);

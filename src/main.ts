@@ -33,23 +33,44 @@ const renderMenu = () => {
   app.innerHTML = `
     <main class="menu-shell">
       <section class="menu-hero">
-        <p class="eyebrow">Wooden Chess</p>
-        <h1>Enter your name, choose a difficulty, then start the match.</h1>
+        <div class="brand-mark" aria-hidden="true">
+          <div class="brand-emblem">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="brand-copy">
+            <p class="eyebrow">Cedar Chess</p>
+            <strong>Classic Match</strong>
+          </div>
+        </div>
+        <h1>A clean wooden chess table, a focused match, and a strong AI opponent.</h1>
         <p class="lede">
-          The board will open cleanly on start, with only a light in-game overlay. Difficulty is
-          set before the match begins.
+          Start from a simple match menu, choose your name and difficulty, then step straight into
+          the board. The game keeps the screen calm, the moves legal, and the match easy to read.
         </p>
         <div class="menu-notes">
-          <div class="menu-chip"><span>Board</span><strong>Floating 3D chess set</strong></div>
-          <div class="menu-chip"><span>Sound</span><strong>Move and capture audio</strong></div>
-          <div class="menu-chip"><span>Play</span><strong>Human vs AI</strong></div>
+          <div class="menu-chip"><span>Board</span><strong>Floating 3D wooden set</strong></div>
+          <div class="menu-chip"><span>Audio</span><strong>Classic move and capture sounds</strong></div>
+          <div class="menu-chip"><span>Opponent</span><strong>Single-player vs AI</strong></div>
+        </div>
+        <div class="hero-footnote">
+          <div class="hero-status compact">
+            <span class="hero-label">How it plays</span>
+            <strong>Click a piece, then click its highlighted destination.</strong>
+          </div>
+          <div class="hero-status compact">
+            <span class="hero-label">During the match</span>
+            <strong>Captured pieces slide to the board edge and stay visible.</strong>
+          </div>
         </div>
       </section>
       <aside class="menu-panel">
         <div class="hero-status">
           <span class="hero-label">Match setup</span>
-          <strong>Everything important is chosen before the board loads.</strong>
-          <p>Your name appears in the match HUD and the difficulty controls how strong the AI feels.</p>
+          <strong>Set the match once, then go straight into play.</strong>
+          <p>Your name appears in the top HUD, and difficulty decides how sharp the AI will be.</p>
         </div>
         <label class="select-block">
           <span>Player name</span>
@@ -69,7 +90,7 @@ const renderMenu = () => {
           <strong>${selectedDifficulty}</strong>
           <p>${difficultyDescription(selectedDifficulty)}</p>
         </div>
-        <button class="start-button" id="start-match" type="button">Start match</button>
+        <button class="start-button" id="start-match" type="button">Start game</button>
       </aside>
     </main>
   `;

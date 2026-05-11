@@ -114,6 +114,10 @@ export class ChessScene {
     if (!this.registry) {
       return;
     }
+    const capturedCounts: Record<GamePieceState["color"], number> = {
+      white: 0,
+      black: 0
+    };
 
     for (const piece of pieces) {
       const view = this.registry.pieceViews.get(piece.id);
@@ -125,8 +129,29 @@ export class ChessScene {
       this.ensureRoleMesh(view, piece.role, piece.color);
 
       if (piece.captured || !piece.square) {
-        view.activeObject.visible = false;
+        const captureIndex = capturedCounts[piece.color];
+        capturedCounts[piece.color] += 1;
+        const capturedPosition = this.getCapturedPiecePosition(piece.color, captureIndex, view.baseY);
+        view.activeObject.visible = true;
+
+        const shouldAnimateCapture = !view.isCaptured && !this.animations.has(piece.id);
+
+        if (shouldAnimateCapture) {
+          this.animations.set(piece.id, {
+            pieceId: piece.id,
+            object: view.activeObject,
+            start: view.activeObject.position.clone(),
+            end: capturedPosition,
+            elapsed: 0,
+            duration: 0.32
+          });
+        } else if (!this.animations.has(piece.id)) {
+          view.activeObject.position.copy(capturedPosition);
+        }
+
+        view.activeObject.quaternion.copy(view.baseQuaternion);
         view.currentSquare = null;
+        view.isCaptured = true;
         continue;
       }
 
@@ -155,6 +180,7 @@ export class ChessScene {
 
       view.activeObject.quaternion.copy(view.baseQuaternion);
       view.currentSquare = piece.square;
+      view.isCaptured = false;
     }
   }
 
@@ -294,5 +320,23 @@ export class ChessScene {
         this.animations.delete(pieceId);
       }
     }
+  }
+
+  private getCapturedPiecePosition(
+    color: GamePieceState["color"],
+    index: number,
+    baseY: number
+  ) {
+    const columns = 4;
+    const spacingX = 0.05;
+    const spacingZ = 0.034;
+    const row = Math.floor(index / columns);
+    const column = index % columns;
+    const x = 0.155 - row * spacingX;
+    const zStart = color === "white" ? 0.18 : -0.18;
+    const zDirection = color === "white" ? -1 : 1;
+    const z = zStart + column * spacingZ * zDirection;
+
+    return new THREE.Vector3(x, baseY, z);
   }
 }
