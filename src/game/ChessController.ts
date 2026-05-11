@@ -109,6 +109,8 @@ export class ChessController {
       lastMove: this.lastMove ? { ...this.lastMove } : null,
       pendingPromotion: this.pendingPromotion ? { ...this.pendingPromotion } : null,
       statusText: this.getStatusText(),
+      moveCount: this.chess.history().length,
+      inCheck: this.chess.inCheck(),
       gameOver: this.chess.isGameOver()
     };
   }

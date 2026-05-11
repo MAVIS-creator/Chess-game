@@ -24,7 +24,12 @@ app.innerHTML = `
           </p>
         </div>
       </div>
-      <div class="board-stage" id="board-stage"></div>
+      <div class="board-stage" id="board-stage">
+        <div class="board-badge">
+          <span>Board-ready GLB</span>
+          <strong>Guided orbit · full rules · wooden set</strong>
+        </div>
+      </div>
     </section>
     <aside class="info-panel" id="hud-root"></aside>
   </main>

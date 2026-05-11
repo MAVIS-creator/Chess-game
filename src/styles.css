@@ -79,6 +79,34 @@ h1 {
   position: relative;
 }
 
+.board-badge {
+  position: absolute;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 1;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: rgba(11, 9, 8, 0.68);
+  border: 1px solid rgba(255, 216, 160, 0.15);
+  backdrop-filter: blur(14px);
+}
+
+.board-badge span,
+.controls-card span,
+.hero-label {
+  display: block;
+  color: rgba(246, 235, 220, 0.62);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.board-badge strong {
+  display: block;
+  margin-top: 0.45rem;
+  line-height: 1.45;
+}
+
 .board-stage canvas {
   display: block;
   width: 100%;
@@ -126,6 +154,39 @@ h1 {
   flex-direction: column;
   gap: 1rem;
   min-height: 100%;
+}
+
+.hero-status,
+.controls-card {
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 215, 160, 0.08);
+  background: rgba(255, 235, 205, 0.06);
+}
+
+.hero-status strong,
+.controls-card strong {
+  display: block;
+  margin-top: 0.55rem;
+  font-size: 1.18rem;
+  line-height: 1.4;
+}
+
+.hero-status p,
+.controls-card p {
+  margin: 0.7rem 0 0;
+  color: rgba(246, 235, 220, 0.72);
+  line-height: 1.6;
+}
+
+.hud-cluster.is-alert .hero-status {
+  border-color: rgba(224, 138, 79, 0.35);
+  background: rgba(128, 52, 24, 0.18);
+}
+
+.hud-cluster.is-finished .hero-status {
+  border-color: rgba(216, 184, 139, 0.3);
+  background: rgba(216, 184, 139, 0.14);
 }
 
 .reset-button,
@@ -193,5 +254,11 @@ h1 {
 
   .board-stage {
     min-height: 22rem;
+  }
+
+  .board-badge {
+    right: 1rem;
+    left: 1rem;
+    bottom: 0.75rem;
   }
 }

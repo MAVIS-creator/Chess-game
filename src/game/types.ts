@@ -48,5 +48,7 @@ export interface GameSnapshot {
   lastMove: MoveSummary | null;
   pendingPromotion: PromotionState | null;
   statusText: string;
+  moveCount: number;
+  inCheck: boolean;
   gameOver: boolean;
 }
