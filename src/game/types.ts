@@ -48,7 +48,7 @@ export interface MoveSummary {
   to: SquareId;
 }
 
-export type MoveSoundCue = "move" | "capture";
+export type MoveSoundCue = "move" | "capture" | "check" | "checkmate" | "stalemate";
 
 export interface PromotionState {
   from: SquareId;
@@ -60,6 +60,7 @@ export interface GameSnapshot {
   currentTurn: PieceColor;
   selectedSquare: SquareId | null;
   legalTargets: SquareId[];
+  checkedKingSquare: SquareId | null;
   lastMove: MoveSummary | null;
   lastMoveSoundCue: MoveSoundCue | null;
   pendingPromotion: PromotionState | null;

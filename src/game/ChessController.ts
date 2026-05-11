@@ -138,6 +138,7 @@ export class ChessController {
       currentTurn: this.getTurn(),
       selectedSquare: this.selectedSquare,
       legalTargets: [...this.legalTargets],
+      checkedKingSquare: this.getCheckedKingSquare(),
       lastMove: this.lastMove ? { ...this.lastMove } : null,
       lastMoveSoundCue: this.lastMoveSoundCue,
       pendingPromotion: this.pendingPromotion ? { ...this.pendingPromotion } : null,
@@ -261,5 +262,18 @@ export class ChessController {
 
     const side = this.getTurn() === "white" ? "White" : "Black";
     return this.chess.inCheck() ? `${side} to move · check` : `${side} to move`;
+  }
+
+  private getCheckedKingSquare() {
+    if (!this.chess.inCheck()) {
+      return null;
+    }
+
+    const checkedColor = this.getTurn();
+    const king = this.pieces.find(
+      (piece) => !piece.captured && piece.color === checkedColor && piece.role === "king"
+    );
+
+    return king?.square ?? null;
   }
 }

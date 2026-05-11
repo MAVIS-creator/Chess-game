@@ -11,6 +11,14 @@ import { StockfishEngine } from "../engine/stockfish";
 import type { PieceColor } from "./types";
 import { ChessController } from "./ChessController";
 
+const MATE_SCAN_BY_DIFFICULTY: Record<BotDifficulty, number | null> = {
+  Easy: null,
+  Normal: null,
+  Hard: 3,
+  "Boss Mode": 5,
+  "Nightmare Mode": 7
+};
+
 export interface BotRuntimeState {
   difficulty: BotDifficulty;
   personalityId: string;
@@ -108,6 +116,36 @@ export class AiMoveController {
 
     try {
       await this.pause(320);
+      this.thinkingStage = "Scanning for forced mate";
+      this.notify();
+      const mateScanDepth = MATE_SCAN_BY_DIFFICULTY[this.difficulty];
+      if (mateScanDepth) {
+        const mateScan = await this.engine.analyzePosition({
+          fen: this.controller.getFen(),
+          depth: DIFFICULTY_CONFIG[this.difficulty].depth,
+          multiPv: 1,
+          mate: mateScanDepth
+        });
+
+        const matingMove = mateScan.candidates[0];
+        if (matingMove?.mateIn !== null && matingMove.mateIn > 0) {
+          this.thinkingStage = `Forcing mate in ${matingMove.mateIn}`;
+          this.notify();
+          const executed = this.tryBestMove(mateScan.bestMove, {
+            selectedMove: mateScan.bestMove,
+            commentary: "The finish is already written.",
+            style: "forced-mate",
+            provider: this.decisionLayer.getProvider(),
+            usedFallback: true
+          });
+          this.commentary = executed.commentary;
+          this.lastStyle = executed.style;
+          this.source = "stockfish";
+          this.notify();
+          return true;
+        }
+      }
+
       this.thinkingStage = "Analyzing lines";
       this.notify();
       const analysis = await this.engine.analyzePosition({

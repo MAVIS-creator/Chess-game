@@ -103,7 +103,8 @@ export class ChessScene {
   highlightSquares(
     selected: SquareId | null,
     legalTargets: SquareId[],
-    lastMove: MoveSummary | null
+    lastMove: MoveSummary | null,
+    checkedKingSquare: SquareId | null = null
   ) {
     const legalSet = new Set(legalTargets);
 
@@ -128,6 +129,15 @@ export class ChessScene {
           (indicator.material as THREE.MeshBasicMaterial).color.set("#63d879");
           (indicator.material as THREE.MeshBasicMaterial).opacity = 0.95;
           indicator.scale.setScalar(0.74);
+        }
+      } else if (checkedKingSquare === square) {
+        material.color.set("#d96464");
+        material.opacity = 0.28;
+        if (indicator) {
+          indicator.visible = true;
+          (indicator.material as THREE.MeshBasicMaterial).color.set("#ff6868");
+          (indicator.material as THREE.MeshBasicMaterial).opacity = 0.98;
+          indicator.scale.setScalar(0.92);
         }
       } else if (lastMove && (lastMove.from === square || lastMove.to === square)) {
         material.color.set("#d6a05c");

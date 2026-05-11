@@ -5,6 +5,7 @@ export interface EngineAnalysisRequest {
   fen: string;
   depth: number;
   multiPv: number;
+  mate?: number | null;
 }
 
 export interface EngineAnalysisResult {
@@ -46,7 +47,11 @@ export class StockfishEngine {
       this.post("ucinewgame");
       this.post("position fen " + request.fen);
       this.post(`setoption name MultiPV value ${request.multiPv}`);
-      this.post(`go depth ${request.depth}`);
+      this.post(
+        request.mate && request.mate > 0
+          ? `go mate ${request.mate}`
+          : `go depth ${request.depth}`
+      );
     });
   }
 

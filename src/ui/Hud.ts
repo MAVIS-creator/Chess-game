@@ -29,21 +29,62 @@ export class Hud {
   }
 
   renderStatus(snapshot: GameSnapshot, botState: BotHudState) {
+    const humanInCheck = snapshot.inCheck && snapshot.currentTurn === "white";
+    const aiInCheck = snapshot.inCheck && snapshot.currentTurn === "black";
     const turnTitle =
-      snapshot.currentTurn === "white"
+      snapshot.gameOver
+        ? "Match finished"
+        : snapshot.currentTurn === "white"
         ? `${botState.playerName}'s turn`
         : botState.thinking
           ? botState.thinkingStage ?? "AI is thinking"
           : "AI to move";
 
     const turnSubtitle =
-      snapshot.currentTurn === "white"
+      snapshot.gameOver
+        ? snapshot.statusText
+        : snapshot.currentTurn === "white"
         ? snapshot.selectedSquare
-          ? `Selected ${snapshot.selectedSquare.toUpperCase()}. Green squares show where it can move.`
-          : "Choose a piece to move."
+          ? snapshot.legalTargets.length > 0
+            ? `Selected ${snapshot.selectedSquare.toUpperCase()}. Green markers show where it can move.`
+            : humanInCheck
+              ? `Selected ${snapshot.selectedSquare.toUpperCase()}. That piece cannot solve the check.`
+              : `Selected ${snapshot.selectedSquare.toUpperCase()}. That piece has no legal move right now.`
+          : humanInCheck
+            ? "Your king is in check. Only escape moves will be shown."
+            : "Choose a piece to move."
         : botState.thinking
           ? "Please wait..."
+          : aiInCheck
+            ? "The AI king is under pressure."
           : "Watch the reply.";
+
+    const alertMarkup = snapshot.gameOver
+      ? `
+        <div class="match-alert match-alert-end">
+          <span class="hero-label">Game Over</span>
+          <strong>${snapshot.statusText}</strong>
+          <p>Press reset to start a fresh match.</p>
+          <button class="reset-button" type="button" data-action="reset">Play again</button>
+        </div>
+      `
+      : humanInCheck
+        ? `
+          <div class="match-alert match-alert-check">
+            <span class="hero-label">King In Trouble</span>
+            <strong>${botState.playerName}, your king is in check.</strong>
+            <p>Select a piece and only legal escape squares will appear.</p>
+          </div>
+        `
+        : aiInCheck
+          ? `
+            <div class="match-alert match-alert-check ai">
+              <span class="hero-label">Pressure Applied</span>
+              <strong>The AI king is in check.</strong>
+              <p>The reply must answer the threat.</p>
+            </div>
+          `
+          : "";
 
     const promotionMarkup = snapshot.pendingPromotion
       ? `
@@ -86,6 +127,7 @@ export class Hud {
         </div>
         <button class="reset-button compact" type="button" data-action="reset">Reset</button>
       </div>
+      ${alertMarkup}
       ${promotionMarkup}
     `;
   }

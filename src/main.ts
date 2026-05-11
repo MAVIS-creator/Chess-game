@@ -161,6 +161,7 @@ const startGame = async () => {
   const aiController = new AiMoveController(controller);
   const hud = new Hud(hudRoot);
   let lastAudibleMoveCount = 0;
+  let lastAlertSignature = "";
 
   aiController.setPlayerName(playerName);
   aiController.setDifficulty(selectedDifficulty);
@@ -178,10 +179,31 @@ const startGame = async () => {
 
     if (snapshot.moveCount === 0) {
       lastAudibleMoveCount = 0;
+      lastAlertSignature = "";
+    }
+
+    const nextAlertSignature = `${snapshot.moveCount}:${snapshot.statusText}:${snapshot.inCheck}:${snapshot.gameOver}`;
+    if (nextAlertSignature !== lastAlertSignature) {
+      if (snapshot.gameOver) {
+        if (snapshot.statusText.toLowerCase().includes("checkmate")) {
+          soundboard.playCue("checkmate");
+        } else if (snapshot.statusText.toLowerCase().includes("stalemate")) {
+          soundboard.playCue("stalemate");
+        }
+      } else if (snapshot.inCheck && snapshot.moveCount > 0) {
+        soundboard.playCue("check");
+      }
+
+      lastAlertSignature = nextAlertSignature;
     }
 
     chessScene.syncBoardState(snapshot.pieces, snapshot.lastMove);
-    chessScene.highlightSquares(snapshot.selectedSquare, displayTargets, snapshot.lastMove);
+    chessScene.highlightSquares(
+      snapshot.selectedSquare,
+      displayTargets,
+      snapshot.lastMove,
+      snapshot.checkedKingSquare
+    );
     hud.renderStatus(snapshot, aiController.getState());
   };
 

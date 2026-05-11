@@ -27,6 +27,23 @@ export interface BotDecisionResult {
   usedFallback: boolean;
 }
 
+const validateBotMove = (
+  selectedMove: string,
+  candidateMoves: EngineCandidateMove[],
+  forceBestMove: boolean
+) => {
+  if (!candidateMoves.length) {
+    return selectedMove;
+  }
+
+  if (forceBestMove) {
+    return candidateMoves[0].move;
+  }
+
+  const allowedMoves = new Set(candidateMoves.map((candidate) => candidate.move));
+  return allowedMoves.has(selectedMove) ? selectedMove : candidateMoves[0].move;
+};
+
 const neutralFallback = (
   difficulty: BotDifficulty,
   candidateMoves: EngineCandidateMove[]
@@ -93,7 +110,30 @@ const openAiCompatiblePayload = (
 ) => ({
   model,
   temperature,
-  response_format: { type: "json_object" },
+  response_format: {
+    type: "json_schema",
+    json_schema: {
+      name: "bot_move_choice",
+      strict: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["selectedMove", "commentary", "style"],
+        properties: {
+          selectedMove: {
+            type: "string",
+            pattern: "^[a-h][1-8][a-h][1-8][qrbn]?$"
+          },
+          commentary: {
+            type: "string"
+          },
+          style: {
+            type: "string"
+          }
+        }
+      }
+    }
+  },
   messages: [
     { role: "system", content: BOT_SYSTEM_PROMPT },
     {
@@ -175,7 +215,16 @@ export class BotDecisionLayer {
 
     const parsed = parseBotResponse(content, request.candidateMoves);
     return parsed
-      ? { ...parsed, provider: "groq" as const, usedFallback: false }
+      ? {
+          ...parsed,
+          selectedMove: validateBotMove(
+            parsed.selectedMove,
+            request.candidateMoves,
+            DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+          ),
+          provider: "groq" as const,
+          usedFallback: false
+        }
       : fallback;
   }
 
@@ -214,7 +263,16 @@ export class BotDecisionLayer {
 
     const parsed = parseBotResponse(content, request.candidateMoves);
     return parsed
-      ? { ...parsed, provider: "openrouter" as const, usedFallback: false }
+      ? {
+          ...parsed,
+          selectedMove: validateBotMove(
+            parsed.selectedMove,
+            request.candidateMoves,
+            DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+          ),
+          provider: "openrouter" as const,
+          usedFallback: false
+        }
       : fallback;
   }
 
@@ -272,7 +330,16 @@ export class BotDecisionLayer {
 
     const parsed = parseBotResponse(content, request.candidateMoves);
     return parsed
-      ? { ...parsed, provider: "gemini" as const, usedFallback: false }
+      ? {
+          ...parsed,
+          selectedMove: validateBotMove(
+            parsed.selectedMove,
+            request.candidateMoves,
+            DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+          ),
+          provider: "gemini" as const,
+          usedFallback: false
+        }
       : fallback;
   }
 }
