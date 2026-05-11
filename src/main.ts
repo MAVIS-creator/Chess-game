@@ -33,7 +33,6 @@ if (!app) {
 const soundboard = new ChessSoundboard();
 let selectedDifficulty: BotDifficulty = DEFAULT_DIFFICULTY;
 let playerName = "Player";
-let playerColor: PieceColor = "white";
 const searchParams = new URLSearchParams(window.location.search);
 
 const renderMenu = () => {
@@ -92,13 +91,6 @@ const renderMenu = () => {
             ).join("")}
           </select>
         </label>
-        <label class="select-block">
-          <span>Play as</span>
-          <select id="menu-color">
-            <option value="white" ${playerColor === "white" ? "selected" : ""}>White · Nightmare Challenge</option>
-            <option value="black" ${playerColor === "black" ? "selected" : ""}>Black · Crimson Assault</option>
-          </select>
-        </label>
         <div class="difficulty-note">
           <span>Current challenge</span>
           <strong>${selectedDifficulty}</strong>
@@ -110,7 +102,6 @@ const renderMenu = () => {
   `;
 
   const difficultySelect = document.querySelector<HTMLSelectElement>("#menu-difficulty");
-  const colorSelect = document.querySelector<HTMLSelectElement>("#menu-color");
   const playerNameInput = document.querySelector<HTMLInputElement>("#menu-player-name");
   const difficultyNote = document.querySelector<HTMLElement>(".difficulty-note");
   const startButton = document.querySelector<HTMLButtonElement>("#start-match");
@@ -128,10 +119,6 @@ const renderMenu = () => {
 
   playerNameInput?.addEventListener("input", () => {
     playerName = playerNameInput.value.trim() || "Player";
-  });
-
-  colorSelect?.addEventListener("change", () => {
-    playerColor = colorSelect.value as PieceColor;
   });
 
   startButton?.addEventListener("click", () => {
@@ -154,7 +141,7 @@ const difficultyDescription = (difficulty: BotDifficulty) => {
     case "Nightmare Mode":
       return "Extremely hard with heavy tactical pressure.";
     case "Impossible":
-      return "Final boss chess. Twenty-second clocks and pure engine punishment.";
+      return "Final boss chess. The AI starts as White, you defend as Black, and both clocks are brutal.";
   }
 };
 
@@ -177,6 +164,7 @@ const startGame = async () => {
     throw new Error("Required game UI nodes were not found.");
   }
 
+  const playerColor: PieceColor = selectedDifficulty === "Impossible" ? "black" : "white";
   const chessScene = new ChessScene(boardStage);
   const controller = new ChessController();
   const aiController = new AiMoveController(controller, {
@@ -193,6 +181,7 @@ const startGame = async () => {
   };
   let timedOutSide: PieceColor | null = null;
   let lastTickAt = performance.now();
+  let activeTurnColor: PieceColor = controller.getSnapshot().currentTurn;
 
   aiController.setPlayerName(playerName);
   aiController.setDifficulty(selectedDifficulty);
@@ -210,6 +199,12 @@ const startGame = async () => {
     const now = performance.now();
     const delta = now - lastTickAt;
     lastTickAt = now;
+
+    if (!timedOutSide && snapshot.currentTurn !== activeTurnColor) {
+      activeTurnColor = snapshot.currentTurn;
+      remainingMs.white = baseClockMs;
+      remainingMs.black = baseClockMs;
+    }
 
     if (!snapshot.gameOver && !timedOutSide && !snapshot.pendingPromotion) {
       const activeColor = snapshot.currentTurn;
@@ -285,6 +280,7 @@ const startGame = async () => {
     remainingMs.white = baseClockMs;
     remainingMs.black = baseClockMs;
     timedOutSide = null;
+    activeTurnColor = controller.getSnapshot().currentTurn;
     lastTickAt = performance.now();
     aiController.setClockState(
       remainingMs[playerColor],
