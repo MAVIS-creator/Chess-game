@@ -6,7 +6,7 @@ import {
   type BotPersonalityProfile,
   type BotProvider
 } from "./botPersonality";
-import { buildBotUserPrompt, BOT_SYSTEM_PROMPT } from "./botPrompts";
+import { buildBotCommentaryPrompt, buildBotUserPrompt, BOT_SYSTEM_PROMPT } from "./botPrompts";
 import { parseBotResponse } from "./botResponseParser";
 
 export interface BotDecisionRequest {
@@ -21,6 +21,13 @@ export interface BotDecisionRequest {
 
 export interface BotDecisionResult {
   selectedMove: string;
+  commentary: string;
+  style: string;
+  provider: BotProvider;
+  usedFallback: boolean;
+}
+
+export interface BotCommentaryResult {
   commentary: string;
   style: string;
   provider: BotProvider;
@@ -104,9 +111,9 @@ const buildSafeCandidateSet = (
 };
 
 const openAiCompatiblePayload = (
-  request: BotDecisionRequest,
   model: string,
-  temperature: number
+  temperature: number,
+  userPrompt: string
 ) => ({
   model,
   temperature,
@@ -138,14 +145,53 @@ const openAiCompatiblePayload = (
     { role: "system", content: BOT_SYSTEM_PROMPT },
     {
       role: "user",
-      content: buildBotUserPrompt({
-        ...request,
-        candidateMoves: request.candidateMoves,
-        forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-      })
+      content: userPrompt
     }
   ]
 });
+
+const commentarySchema = {
+  type: "json_schema" as const,
+  json_schema: {
+    name: "bot_commentary",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["commentary", "style"],
+      properties: {
+        commentary: {
+          type: "string"
+        },
+        style: {
+          type: "string"
+        }
+      }
+    }
+  }
+};
+
+const parseCommentaryResponse = (raw: string): Pick<BotCommentaryResult, "commentary" | "style"> | null => {
+  try {
+    const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/gim, "").trim()) as Partial<{
+      commentary: string;
+      style: string;
+    }>;
+
+    return {
+      commentary:
+        typeof parsed.commentary === "string" && parsed.commentary.trim().length > 0
+          ? parsed.commentary.trim()
+          : "Your move exposed something.",
+      style:
+        typeof parsed.style === "string" && parsed.style.trim().length > 0
+          ? parsed.style.trim()
+          : "engine-backed"
+    };
+  } catch {
+    return null;
+  }
+};
 
 export class BotDecisionLayer {
   private provider = (import.meta.env.VITE_AI_PROVIDER as BotProvider | undefined) ?? DEFAULT_PROVIDER;
@@ -161,6 +207,12 @@ export class BotDecisionLayer {
       candidateMoves: safeCandidateMoves
     };
     const fallback = neutralFallback(request.difficulty, safeCandidateMoves);
+
+    // In the hardest modes, do not wait on remote providers.
+    // Use Stockfish rank 1 immediately so network or API latency cannot throw the game.
+    if (DIFFICULTY_CONFIG[request.difficulty].forceBestMove) {
+      return fallback;
+    }
 
     try {
       switch (this.provider) {
@@ -182,6 +234,44 @@ export class BotDecisionLayer {
     return this.provider;
   }
 
+  async decorateMoveCommentary(
+    request: BotDecisionRequest,
+    selectedMove: string
+  ): Promise<BotCommentaryResult | null> {
+    if (this.provider === "disabled") {
+      return null;
+    }
+
+    try {
+      switch (this.provider) {
+        case "groq":
+          return await this.callGroqCommentary(request, selectedMove);
+        case "openrouter":
+          return await this.callOpenRouterCommentary(request, selectedMove);
+        case "gemini":
+          return await this.callGeminiCommentary(request, selectedMove);
+        default:
+          return null;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  private async fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await fetch(input, {
+        ...init,
+        signal: controller.signal
+      });
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
   private async callGroq(request: BotDecisionRequest, fallback: BotDecisionResult) {
     const apiKey = import.meta.env.VITE_GROQ_API_KEY;
     const model = import.meta.env.VITE_GROQ_MODEL ?? "llama-3.1-8b-instant";
@@ -190,16 +280,28 @@ export class BotDecisionLayer {
       return fallback;
     }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const response = await this.fetchWithTimeout(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify(
-        openAiCompatiblePayload(request, model, DIFFICULTY_CONFIG[request.difficulty].temperature)
+        openAiCompatiblePayload(
+          model,
+          DIFFICULTY_CONFIG[request.difficulty].temperature,
+          buildBotUserPrompt({
+            ...request,
+            candidateMoves: request.candidateMoves,
+            forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+          })
+        )
       )
-    });
+      },
+      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
+    );
 
     if (!response.ok) {
       return fallback;
@@ -236,7 +338,9 @@ export class BotDecisionLayer {
       return fallback;
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await this.fetchWithTimeout(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -245,9 +349,19 @@ export class BotDecisionLayer {
         "X-Title": "Wooden Chess"
       },
       body: JSON.stringify(
-        openAiCompatiblePayload(request, model, DIFFICULTY_CONFIG[request.difficulty].temperature)
+        openAiCompatiblePayload(
+          model,
+          DIFFICULTY_CONFIG[request.difficulty].temperature,
+          buildBotUserPrompt({
+            ...request,
+            candidateMoves: request.candidateMoves,
+            forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+          })
+        )
       )
-    });
+      },
+      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
+    );
 
     if (!response.ok) {
       return fallback;
@@ -284,7 +398,7 @@ export class BotDecisionLayer {
       return fallback;
     }
 
-    const response = await fetch(
+    const response = await this.fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: "POST",
@@ -313,7 +427,8 @@ export class BotDecisionLayer {
             }
           ]
         })
-      }
+      },
+      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
     );
 
     if (!response.ok) {
@@ -341,5 +456,172 @@ export class BotDecisionLayer {
           usedFallback: false
         }
       : fallback;
+  }
+
+  private async callGroqCommentary(request: BotDecisionRequest, selectedMove: string) {
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+    const model = import.meta.env.VITE_GROQ_MODEL ?? "llama-3.1-8b-instant";
+
+    if (!apiKey) {
+      return null;
+    }
+
+    const response = await this.fetchWithTimeout(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          temperature: DIFFICULTY_CONFIG[request.difficulty].temperature,
+          response_format: commentarySchema,
+          messages: [
+            { role: "system", content: BOT_SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: buildBotCommentaryPrompt(
+                {
+                  ...request,
+                  forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+                },
+                selectedMove
+              )
+            }
+          ]
+        })
+      },
+      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = data.choices?.[0]?.message?.content;
+    const parsed = content ? parseCommentaryResponse(content) : null;
+
+    return parsed
+      ? { ...parsed, provider: "groq" as const, usedFallback: false }
+      : null;
+  }
+
+  private async callOpenRouterCommentary(request: BotDecisionRequest, selectedMove: string) {
+    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+    const model = import.meta.env.VITE_OPENROUTER_MODEL ?? "openai/gpt-4.1";
+
+    if (!apiKey) {
+      return null;
+    }
+
+    const response = await this.fetchWithTimeout(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "Wooden Chess"
+        },
+        body: JSON.stringify({
+          model,
+          temperature: DIFFICULTY_CONFIG[request.difficulty].temperature,
+          response_format: commentarySchema,
+          messages: [
+            { role: "system", content: BOT_SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: buildBotCommentaryPrompt(
+                {
+                  ...request,
+                  forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+                },
+                selectedMove
+              )
+            }
+          ]
+        })
+      },
+      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = data.choices?.[0]?.message?.content;
+    const parsed = content ? parseCommentaryResponse(content) : null;
+
+    return parsed
+      ? { ...parsed, provider: "openrouter" as const, usedFallback: false }
+      : null;
+  }
+
+  private async callGeminiCommentary(request: BotDecisionRequest, selectedMove: string) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const model = import.meta.env.VITE_GEMINI_MODEL ?? "gemini-1.5-flash";
+
+    if (!apiKey) {
+      return null;
+    }
+
+    const response = await this.fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          generationConfig: {
+            temperature: DIFFICULTY_CONFIG[request.difficulty].temperature,
+            responseMimeType: "application/json"
+          },
+          systemInstruction: {
+            parts: [{ text: BOT_SYSTEM_PROMPT }]
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: buildBotCommentaryPrompt(
+                    {
+                      ...request,
+                      forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+                    },
+                    selectedMove
+                  )
+                }
+              ]
+            }
+          ]
+        })
+      },
+      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const parsed = content ? parseCommentaryResponse(content) : null;
+
+    return parsed
+      ? { ...parsed, provider: "gemini" as const, usedFallback: false }
+      : null;
   }
 }

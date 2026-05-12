@@ -6,6 +6,7 @@ export interface EngineAnalysisRequest {
   depth: number;
   multiPv: number;
   mate?: number | null;
+  moveTimeMs?: number;
   timeoutMs?: number;
 }
 
@@ -60,7 +61,9 @@ export class StockfishEngine {
       this.post(
         request.mate && request.mate > 0
           ? `go mate ${request.mate}`
-          : `go depth ${request.depth}`
+          : request.moveTimeMs && request.moveTimeMs > 0
+            ? `go movetime ${request.moveTimeMs}`
+            : `go depth ${request.depth}`
       );
     });
   }

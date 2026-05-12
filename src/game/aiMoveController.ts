@@ -197,6 +197,7 @@ export class AiMoveController {
         fen: this.controller.getFen(),
         depth: DIFFICULTY_CONFIG[this.difficulty].depth,
         multiPv: DIFFICULTY_CONFIG[this.difficulty].multiPv,
+        moveTimeMs: DIFFICULTY_CONFIG[this.difficulty].moveTimeMs,
         timeoutMs: DIFFICULTY_CONFIG[this.difficulty].searchTimeoutMs
       });
 
@@ -205,6 +206,35 @@ export class AiMoveController {
       if (!this.canProceed()) {
         return false;
       }
+
+      if (DIFFICULTY_CONFIG[this.difficulty].forceBestMove) {
+        const selectedMove = analysis.bestMove;
+        const executed = this.tryBestMove(selectedMove, {
+          selectedMove,
+          commentary: DIFFICULTY_CONFIG[this.difficulty].commentaryFallback,
+          style: "best",
+          provider: this.decisionLayer.getProvider(),
+          usedFallback: true
+        });
+
+        this.commentary = executed.commentary;
+        this.lastStyle = executed.style;
+        this.source = executed.source;
+        this.notify();
+
+        void this.decorateCommentaryAfterMove({
+          fen: this.controller.getFen(),
+          moveHistory: this.controller.getMoveHistoryUci(),
+          playerColor: this.playerColor,
+          botColor: this.botColor,
+          difficulty: this.difficulty,
+          personality: this.personality,
+          candidateMoves: analysis.candidates
+        }, selectedMove);
+
+        return true;
+      }
+
       const decision = await this.decisionLayer.chooseMove({
         fen: this.controller.getFen(),
         moveHistory: this.controller.getMoveHistoryUci(),
@@ -278,5 +308,20 @@ export class AiMoveController {
 
   private canProceed() {
     return this.canContinueTurn?.() ?? true;
+  }
+
+  private async decorateCommentaryAfterMove(
+    request: Parameters<BotDecisionLayer["decorateMoveCommentary"]>[0],
+    selectedMove: string
+  ) {
+    const commentary = await this.decisionLayer.decorateMoveCommentary(request, selectedMove);
+    if (!commentary) {
+      return;
+    }
+
+    this.commentary = commentary.commentary;
+    this.lastStyle = commentary.style;
+    this.source = commentary.usedFallback ? "stockfish" : "llm";
+    this.notify();
   }
 }

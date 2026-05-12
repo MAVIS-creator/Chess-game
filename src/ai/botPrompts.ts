@@ -12,6 +12,15 @@ export interface BotPromptPayload {
   forceBestMove: boolean;
 }
 
+const slimCandidates = (candidateMoves: EngineCandidateMove[]) =>
+  candidateMoves.map((candidate) => ({
+    move: candidate.move,
+    label: candidate.label,
+    score: candidate.mateIn === null ? candidate.score : undefined,
+    mateIn: candidate.mateIn ?? undefined,
+    depth: candidate.depth
+  }));
+
 export const BOT_SYSTEM_PROMPT = `
 You are the move-selection personality layer for a chess bot.
 
@@ -254,11 +263,40 @@ export const buildBotUserPrompt = (payload: BotPromptPayload) =>
         ]
       },
       fen: payload.fen,
-      moveHistory: payload.moveHistory,
+      moveHistory: payload.moveHistory.slice(-6),
       playerColor: payload.playerColor,
       botColor: payload.botColor,
       difficulty: payload.difficulty,
-      candidateMoves: payload.candidateMoves
+      candidateMoves: slimCandidates(payload.candidateMoves)
+    },
+    null,
+    2
+  );
+
+export const buildBotCommentaryPrompt = (payload: BotPromptPayload, selectedMove: string) =>
+  JSON.stringify(
+    {
+      instructions: {
+        role: "Comment on the already selected move without changing it.",
+        personalityName: payload.personality.name,
+        personalityTone: payload.personality.tone,
+        personalityDescription: payload.personality.description,
+        personalityRules: payload.personality.rules,
+        hardRuleReminder: [
+          "The move is already final.",
+          "Do not suggest another move.",
+          "Do not explain backend logic.",
+          "Keep commentary to one short sentence.",
+          "Return only valid JSON."
+        ]
+      },
+      fen: payload.fen,
+      moveHistory: payload.moveHistory.slice(-6),
+      playerColor: payload.playerColor,
+      botColor: payload.botColor,
+      difficulty: payload.difficulty,
+      selectedMove,
+      candidateMoves: slimCandidates(payload.candidateMoves.slice(0, 2))
     },
     null,
     2
