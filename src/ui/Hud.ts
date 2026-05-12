@@ -13,6 +13,7 @@ export class Hud {
   private onPromote: ((role: PieceRole) => void) | null = null;
   private onZoomIn: (() => void) | null = null;
   private onZoomOut: (() => void) | null = null;
+  private mobileMetaOpen = false;
 
   constructor(private readonly root: HTMLElement) {
     this.root.addEventListener("click", this.handleClick);
@@ -160,11 +161,34 @@ export class Hud {
           <span>Captured</span>
           <strong>White ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length} · Black ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length}</strong>
         </div>
+        <button
+          class="meta-toggle-button ${this.mobileMetaOpen ? "is-open" : ""}"
+          type="button"
+          data-action="toggle-meta"
+          aria-expanded="${this.mobileMetaOpen ? "true" : "false"}"
+          aria-label="Toggle extra match details"
+        >
+          ☰ More
+        </button>
         <div class="zoom-controls">
           <button class="zoom-button" type="button" data-action="zoom-out" aria-label="Zoom out">−</button>
           <button class="zoom-button" type="button" data-action="zoom-in" aria-label="Zoom in">+</button>
         </div>
         <button class="reset-button compact" type="button" data-action="reset">Reset</button>
+      </div>
+      <div class="mobile-meta-panel ${this.mobileMetaOpen ? "is-open" : ""}">
+        <div class="mini-card">
+          <span>Commentary</span>
+          <strong>${botState.commentary}</strong>
+        </div>
+        <div class="mini-card">
+          <span>Last move</span>
+          <strong>${snapshot.lastMove ? `${snapshot.lastMove.from.toUpperCase()} → ${snapshot.lastMove.to.toUpperCase()}` : "Opening position"}</strong>
+        </div>
+        <div class="mini-card">
+          <span>Captured</span>
+          <strong>White ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length} · Black ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length}</strong>
+        </div>
       </div>
       ${alertMarkup}
       ${promotionMarkup}
@@ -189,6 +213,14 @@ export class Hud {
 
     if (target.dataset.action === "zoom-out") {
       this.onZoomOut?.();
+      return;
+    }
+
+    if (target.dataset.action === "toggle-meta") {
+      this.mobileMetaOpen = !this.mobileMetaOpen;
+      target.setAttribute("aria-expanded", this.mobileMetaOpen ? "true" : "false");
+      this.root.querySelector(".mobile-meta-panel")?.classList.toggle("is-open", this.mobileMetaOpen);
+      this.root.querySelector(".meta-toggle-button")?.classList.toggle("is-open", this.mobileMetaOpen);
       return;
     }
 
