@@ -609,8 +609,8 @@ h1 {
   }
 
   .commentary-card,
-  .bottom-hud .mini-card:nth-of-type(3),
-  .bottom-hud .mini-card:nth-of-type(5) {
+  .last-move-card,
+  .captured-card {
     display: none;
   }
 

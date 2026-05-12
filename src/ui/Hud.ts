@@ -149,7 +149,7 @@ export class Hud {
           <span>${botState.botColor === "white" ? "AI · White" : "AI · Black"}</span>
           <strong>${formatClock(botState.aiTimeMs)}</strong>
         </div>
-        <div class="mini-card">
+        <div class="mini-card last-move-card">
           <span>Last move</span>
           <strong>${snapshot.lastMove ? `${snapshot.lastMove.from.toUpperCase()} → ${snapshot.lastMove.to.toUpperCase()}` : "Opening position"}</strong>
         </div>
@@ -157,7 +157,7 @@ export class Hud {
           <span>Commentary</span>
           <strong>${botState.commentary}</strong>
         </div>
-        <div class="mini-card">
+        <div class="mini-card captured-card">
           <span>Captured</span>
           <strong>White ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length} · Black ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length}</strong>
         </div>
