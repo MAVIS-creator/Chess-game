@@ -192,7 +192,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
   "Nightmare Mode": {
     depth: 24,
     multiPv: 1,
-    moveTimeMs: 3000,
+    moveTimeMs: 2400,
     temperature: 0,
     commentaryFallback: "No room left.",
     selectionBias: "attacking",
@@ -203,12 +203,12 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     clockSeconds: 25,
     searchTimeoutMs: 1100,
     mateScanTimeoutMs: 450,
-    commentaryTimeoutMs: 1000
+    commentaryTimeoutMs: 800
   },
   Impossible: {
     depth: 26,
     multiPv: 1,
-    moveTimeMs: 1800,
+    moveTimeMs: 1400,
     temperature: 0,
     commentaryFallback: "Your clock bleeds before the board does.",
     selectionBias: "attacking",
@@ -219,11 +219,11 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     clockSeconds: 20,
     searchTimeoutMs: 900,
     mateScanTimeoutMs: 350,
-    commentaryTimeoutMs: 850
+    commentaryTimeoutMs: 650
   }
 };
 
-export const DEFAULT_PROVIDER: BotProvider = "openrouter";
+export const DEFAULT_PROVIDER: BotProvider = "groq";
 export const DEFAULT_PERSONALITY = BOT_PERSONALITIES[2];
 export const DEFAULT_DIFFICULTY: BotDifficulty = "Impossible";
 

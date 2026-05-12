@@ -312,6 +312,9 @@ const startGame = async () => {
     }
 
     const moved = controller.selectSquare(square);
+    if (moved) {
+      aiController.reactToPlayerMove();
+    }
     sync();
     if (moved) {
       void syncAndRunBotTurn();

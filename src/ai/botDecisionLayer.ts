@@ -34,6 +34,8 @@ export interface BotCommentaryResult {
   usedFallback: boolean;
 }
 
+type CommentaryActor = "player" | "bot";
+
 const validateBotMove = (
   selectedMove: string,
   candidateMoves: EngineCandidateMove[],
@@ -215,7 +217,7 @@ export class BotDecisionLayer {
     }
 
     try {
-      switch (this.provider) {
+      switch (this.getProviderForDifficulty(request.difficulty)) {
         case "groq":
           return await this.callGroq(strictRequest, fallback);
         case "openrouter":
@@ -234,22 +236,57 @@ export class BotDecisionLayer {
     return this.provider;
   }
 
+  getProviderForDifficulty(difficulty: BotDifficulty) {
+    if (difficulty === "Nightmare Mode" || difficulty === "Impossible") {
+      if (import.meta.env.VITE_GROQ_API_KEY) {
+        return "groq" as const;
+      }
+
+      if (import.meta.env.VITE_OPENROUTER_API_KEY) {
+        return "openrouter" as const;
+      }
+
+      if (import.meta.env.VITE_GEMINI_API_KEY) {
+        return "gemini" as const;
+      }
+    }
+
+    return this.provider;
+  }
+
   async decorateMoveCommentary(
     request: BotDecisionRequest,
     selectedMove: string
   ): Promise<BotCommentaryResult | null> {
-    if (this.provider === "disabled") {
+    return this.decorateCommentary(request, selectedMove, "bot");
+  }
+
+  async decoratePlayerMoveCommentary(
+    request: BotDecisionRequest,
+    selectedMove: string
+  ): Promise<BotCommentaryResult | null> {
+    return this.decorateCommentary(request, selectedMove, "player");
+  }
+
+  private async decorateCommentary(
+    request: BotDecisionRequest,
+    selectedMove: string,
+    actor: CommentaryActor
+  ): Promise<BotCommentaryResult | null> {
+    const provider = this.getProviderForDifficulty(request.difficulty);
+
+    if (provider === "disabled") {
       return null;
     }
 
     try {
-      switch (this.provider) {
+      switch (provider) {
         case "groq":
-          return await this.callGroqCommentary(request, selectedMove);
+          return await this.callGroqCommentary(request, selectedMove, actor);
         case "openrouter":
-          return await this.callOpenRouterCommentary(request, selectedMove);
+          return await this.callOpenRouterCommentary(request, selectedMove, actor);
         case "gemini":
-          return await this.callGeminiCommentary(request, selectedMove);
+          return await this.callGeminiCommentary(request, selectedMove, actor);
         default:
           return null;
       }
@@ -458,7 +495,11 @@ export class BotDecisionLayer {
       : fallback;
   }
 
-  private async callGroqCommentary(request: BotDecisionRequest, selectedMove: string) {
+  private async callGroqCommentary(
+    request: BotDecisionRequest,
+    selectedMove: string,
+    actor: CommentaryActor
+  ) {
     const apiKey = import.meta.env.VITE_GROQ_API_KEY;
     const model = import.meta.env.VITE_GROQ_MODEL ?? "llama-3.1-8b-instant";
 
@@ -487,7 +528,8 @@ export class BotDecisionLayer {
                   ...request,
                   forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
                 },
-                selectedMove
+                selectedMove,
+                actor
               )
             }
           ]
@@ -511,7 +553,11 @@ export class BotDecisionLayer {
       : null;
   }
 
-  private async callOpenRouterCommentary(request: BotDecisionRequest, selectedMove: string) {
+  private async callOpenRouterCommentary(
+    request: BotDecisionRequest,
+    selectedMove: string,
+    actor: CommentaryActor
+  ) {
     const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
     const model = import.meta.env.VITE_OPENROUTER_MODEL ?? "openai/gpt-4.1";
 
@@ -542,7 +588,8 @@ export class BotDecisionLayer {
                   ...request,
                   forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
                 },
-                selectedMove
+                selectedMove,
+                actor
               )
             }
           ]
@@ -566,7 +613,11 @@ export class BotDecisionLayer {
       : null;
   }
 
-  private async callGeminiCommentary(request: BotDecisionRequest, selectedMove: string) {
+  private async callGeminiCommentary(
+    request: BotDecisionRequest,
+    selectedMove: string,
+    actor: CommentaryActor
+  ) {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     const model = import.meta.env.VITE_GEMINI_MODEL ?? "gemini-1.5-flash";
 
@@ -599,7 +650,8 @@ export class BotDecisionLayer {
                       ...request,
                       forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
                     },
-                    selectedMove
+                    selectedMove,
+                    actor
                   )
                 }
               ]

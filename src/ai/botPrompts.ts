@@ -21,6 +21,9 @@ const slimCandidates = (candidateMoves: EngineCandidateMove[]) =>
     depth: candidate.depth
   }));
 
+const isOpaqueCommentaryMode = (difficulty: BotDifficulty) =>
+  difficulty === "Nightmare Mode" || difficulty === "Impossible";
+
 export const BOT_SYSTEM_PROMPT = `
 You are the move-selection personality layer for a chess bot.
 
@@ -215,6 +218,11 @@ const difficultyInstruction = (difficulty: BotDifficulty) => {
 
         TONE:
         Cold, minimal, lethal, and confident.
+
+        COMMENTARY RULES:
+        Do not teach.
+        Do not explain tactics, plans, weaknesses, or best-move ideas.
+        Keep commentary vague, intimidating, psychological, and non-instructional.
       `;
     case "Impossible":
       return `
@@ -239,6 +247,11 @@ const difficultyInstruction = (difficulty: BotDifficulty) => {
 
         TONE:
         Cold, controlled, and merciless.
+
+        COMMENTARY RULES:
+        Do not teach.
+        Do not explain tactics, plans, weaknesses, or best-move ideas.
+        Keep commentary vague, intimidating, psychological, and non-instructional.
       `;
   }
 };
@@ -260,7 +273,10 @@ export const buildBotUserPrompt = (payload: BotPromptPayload) =>
           "Never trade strength for style.",
           "Never reveal engine or backend logic.",
           "Keep commentary short."
-        ]
+        ],
+        commentaryMode: isOpaqueCommentaryMode(payload.difficulty)
+          ? "Vague intimidation only. No coaching, no explanation, no tactical hints."
+          : "Short natural commentary is allowed."
       },
       fen: payload.fen,
       moveHistory: payload.moveHistory.slice(-6),
@@ -273,11 +289,18 @@ export const buildBotUserPrompt = (payload: BotPromptPayload) =>
     2
   );
 
-export const buildBotCommentaryPrompt = (payload: BotPromptPayload, selectedMove: string) =>
+export const buildBotCommentaryPrompt = (
+  payload: BotPromptPayload,
+  selectedMove: string,
+  actor: "player" | "bot" = "bot"
+) =>
   JSON.stringify(
     {
       instructions: {
-        role: "Comment on the already selected move without changing it.",
+        role:
+          actor === "bot"
+            ? "Comment on the bot's already selected move without changing it."
+            : "React to the player's already completed move without giving advice.",
         personalityName: payload.personality.name,
         personalityTone: payload.personality.tone,
         personalityDescription: payload.personality.description,
@@ -288,8 +311,12 @@ export const buildBotCommentaryPrompt = (payload: BotPromptPayload, selectedMove
           "Do not explain backend logic.",
           "Keep commentary to one short sentence.",
           "Return only valid JSON."
-        ]
+        ],
+        commentaryMode: isOpaqueCommentaryMode(payload.difficulty)
+          ? "Vague intimidation only. No coaching, no explanation, no tactical hints."
+          : "Short natural commentary is allowed."
       },
+      actor,
       fen: payload.fen,
       moveHistory: payload.moveHistory.slice(-6),
       playerColor: payload.playerColor,

@@ -73,7 +73,7 @@ export class AiMoveController {
       difficulty: this.difficulty,
       personalityId: this.personality.id,
       personalityName: this.personality.name,
-      provider: this.decisionLayer.getProvider(),
+      provider: this.decisionLayer.getProviderForDifficulty(this.difficulty),
       commentary: this.commentary,
       thinking: this.thinking,
       thinkingStage: this.thinkingStage,
@@ -123,6 +123,43 @@ export class AiMoveController {
 
   canPlayerInteract() {
     return !this.thinking && this.controller.getSnapshot().currentTurn === this.playerColor;
+  }
+
+  reactToPlayerMove() {
+    if (this.difficulty !== "Nightmare Mode" && this.difficulty !== "Impossible") {
+      return;
+    }
+
+    const snapshot = this.controller.getSnapshot();
+    const lines =
+      this.difficulty === "Impossible"
+        ? IMPOSSIBLE_PLAYER_REACTIONS
+        : NIGHTMARE_PLAYER_REACTIONS;
+
+    this.commentary = snapshot.inCheck
+      ? "You stepped into danger."
+      : lines[Math.floor(Math.random() * lines.length)];
+    this.lastStyle = "psychological-pressure";
+    this.source = "stockfish";
+    this.notify();
+
+    const selectedMove = this.controller.getMoveHistoryUci().at(-1);
+    if (!selectedMove) {
+      return;
+    }
+
+    void this.decoratePlayerCommentaryAfterMove(
+      {
+        fen: this.controller.getFen(),
+        moveHistory: this.controller.getMoveHistoryUci(),
+        playerColor: this.playerColor,
+        botColor: this.botColor,
+        difficulty: this.difficulty,
+        personality: this.personality,
+        candidateMoves: []
+      },
+      selectedMove
+    );
   }
 
   shouldHideHints() {
@@ -324,4 +361,37 @@ export class AiMoveController {
     this.source = commentary.usedFallback ? "stockfish" : "llm";
     this.notify();
   }
+
+  private async decoratePlayerCommentaryAfterMove(
+    request: Parameters<BotDecisionLayer["decoratePlayerMoveCommentary"]>[0],
+    selectedMove: string
+  ) {
+    const commentary = await this.decisionLayer.decoratePlayerMoveCommentary(request, selectedMove);
+    if (!commentary || this.thinking) {
+      return;
+    }
+
+    this.commentary = commentary.commentary;
+    this.lastStyle = commentary.style;
+    this.source = commentary.usedFallback ? "stockfish" : "llm";
+    this.notify();
+  }
 }
+
+const NIGHTMARE_PLAYER_REACTIONS = [
+  "A weakness appears.",
+  "Interesting.",
+  "You moved too quickly.",
+  "That will be tested.",
+  "The board remembers.",
+  "Pressure is coming."
+];
+
+const IMPOSSIBLE_PLAYER_REACTIONS = [
+  "A weakness appears.",
+  "You moved too quickly.",
+  "That changes nothing.",
+  "The pressure grows.",
+  "Your space is shrinking.",
+  "Interesting."
+];
