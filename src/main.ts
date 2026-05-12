@@ -34,8 +34,11 @@ const soundboard = new ChessSoundboard();
 let selectedDifficulty: BotDifficulty = DEFAULT_DIFFICULTY;
 let playerName = "Player";
 const searchParams = new URLSearchParams(window.location.search);
+let activeSessionCleanup: (() => void) | null = null;
 
 const renderMenu = () => {
+  activeSessionCleanup?.();
+  activeSessionCleanup = null;
   document.body.classList.remove("game-mode");
   app.innerHTML = `
     <main class="menu-shell">
@@ -186,6 +189,7 @@ const startGame = async () => {
   let activeTurnColor: PieceColor = controller.getSnapshot().currentTurn;
   let recordedOutcomeSignature = "";
   const botColor: PieceColor = playerColor === "white" ? "black" : "white";
+  let sessionActive = true;
 
   aiController.setPlayerName(playerName);
   aiController.setDifficulty(selectedDifficulty);
@@ -200,6 +204,10 @@ const startGame = async () => {
   void aiController.hydrateAdaptiveMemory();
 
   const tickClock = () => {
+    if (!sessionActive) {
+      return;
+    }
+
     const snapshot = controller.getSnapshot();
     const now = performance.now();
     const delta = now - lastTickAt;
@@ -225,7 +233,9 @@ const startGame = async () => {
       timedOutSide
     );
 
-    window.requestAnimationFrame(tickClock);
+    if (sessionActive) {
+      window.requestAnimationFrame(tickClock);
+    }
   };
 
   const sync = () => {
@@ -334,12 +344,23 @@ const startGame = async () => {
     void syncAndRunBotTurn();
   });
 
-  hud.bindZoomIn(() => {
-    chessScene.zoomIn();
+  hud.bindCycleCamera(() => {
+    chessScene.cycleCameraPreset(controller.getSnapshot().lastMove);
   });
 
-  hud.bindZoomOut(() => {
-    chessScene.zoomOut();
+  hud.bindBackToMenu(() => {
+    renderMenu();
+  });
+
+  hud.bindExit(() => {
+    activeSessionCleanup?.();
+    activeSessionCleanup = null;
+    window.close();
+    window.setTimeout(() => {
+      if (!window.closed) {
+        renderMenu();
+      }
+    }, 150);
   });
 
   chessScene.setSquareSelectHandler((square) => {
@@ -374,6 +395,16 @@ const startGame = async () => {
         syncAndRunBotTurn
       };
     }
+
+    activeSessionCleanup = () => {
+      if (!sessionActive) {
+        return;
+      }
+
+      sessionActive = false;
+      aiController.dispose();
+      chessScene.dispose();
+    };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     hudRoot.innerHTML = `<div class="top-hud"><div class="turn-badge"><span class="hero-label">Runtime error</span><strong>Scene initialization failed</strong><p>${message}</p></div></div>`;

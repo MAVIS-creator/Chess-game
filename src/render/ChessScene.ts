@@ -7,6 +7,7 @@ import { ALL_SQUARES, BOARD_SURFACE_Y, SQUARE_SIZE, getSquarePosition } from "./
 import { buildModelRegistry, getTemplateKey, type ModelRegistry, type PieceView } from "./modelRegistry";
 
 const ASSET_PATH = "/wooden_chess_set.glb";
+type CameraPreset = "perspective" | "top-down" | "close-up";
 
 interface PieceAnimation {
   pieceId: string;
@@ -32,6 +33,7 @@ export class ChessScene {
   private frameHandle = 0;
   private registry: ModelRegistry | null = null;
   private onSquareSelect: ((square: SquareId) => void) | null = null;
+  private activeCameraPreset: CameraPreset = "perspective";
 
   constructor(private readonly mount: HTMLElement) {
     this.scene = new THREE.Scene();
@@ -90,14 +92,14 @@ export class ChessScene {
     this.onSquareSelect = handler;
   }
 
-  zoomIn() {
-    this.adjustZoom(-0.12);
-    this.controls.update();
-  }
-
-  zoomOut() {
-    this.adjustZoom(0.12);
-    this.controls.update();
+  cycleCameraPreset(lastMove: MoveSummary | null) {
+    this.activeCameraPreset =
+      this.activeCameraPreset === "perspective"
+        ? "top-down"
+        : this.activeCameraPreset === "top-down"
+          ? "close-up"
+          : "perspective";
+    this.applyCameraPreset(this.activeCameraPreset, lastMove);
   }
 
   highlightSquares(
@@ -359,7 +361,6 @@ export class ChessScene {
       this.controls.minPolarAngle = 0.82;
       this.controls.maxPolarAngle = 1.3;
       this.controls.target.set(0, 0.015, 0);
-      this.camera.position.set(-0.42, 0.34, 0.02);
     } else if (isSmallViewport) {
       this.camera.fov = 47;
       this.controls.minDistance = 0.42;
@@ -367,7 +368,6 @@ export class ChessScene {
       this.controls.minPolarAngle = 0.76;
       this.controls.maxPolarAngle = 1.38;
       this.controls.target.set(0, 0.018, 0);
-      this.camera.position.set(-0.46, 0.37, 0.02);
     } else {
       this.camera.fov = 45;
       this.controls.minDistance = 0.38;
@@ -380,6 +380,7 @@ export class ChessScene {
     this.camera.aspect = clientWidth / clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(clientWidth, clientHeight);
+    this.applyCameraPreset(this.activeCameraPreset, null);
     this.controls.update();
   };
 
@@ -422,23 +423,6 @@ export class ChessScene {
         this.animations.delete(pieceId);
       }
     }
-  }
-
-  private adjustZoom(delta: number) {
-    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
-    const currentDistance = offset.length();
-    const nextDistance = THREE.MathUtils.clamp(
-      currentDistance + delta,
-      this.controls.minDistance,
-      this.controls.maxDistance
-    );
-
-    if (Math.abs(nextDistance - currentDistance) < 0.0001) {
-      return;
-    }
-
-    offset.setLength(nextDistance);
-    this.camera.position.copy(this.controls.target).add(offset);
   }
 
   private tuneMeshMaterial(mesh: THREE.Mesh) {
@@ -491,5 +475,32 @@ export class ChessScene {
     const z = zStart + column * spacingZ * zDirection;
 
     return new THREE.Vector3(x, baseY, z);
+  }
+
+  private applyCameraPreset(preset: CameraPreset, lastMove: MoveSummary | null) {
+    const isPhone = this.mount.clientWidth <= 640;
+
+    if (preset === "top-down") {
+      this.controls.target.set(0, 0.018, 0);
+      this.camera.position.set(0, isPhone ? 0.58 : 0.66, 0.001);
+      this.camera.lookAt(this.controls.target);
+      return;
+    }
+
+    if (preset === "close-up" && lastMove) {
+      const focus = getSquarePosition(lastMove.to);
+      this.controls.target.set(focus.x, 0.022, focus.z);
+      this.camera.position.set(focus.x - 0.18, isPhone ? 0.2 : 0.24, focus.z + 0.12);
+      this.camera.lookAt(this.controls.target);
+      return;
+    }
+
+    this.controls.target.set(0, isPhone ? 0.015 : 0.02, 0);
+    this.camera.position.set(
+      isPhone ? -0.4 : -0.42,
+      isPhone ? 0.31 : 0.34,
+      isPhone ? 0.04 : 0.02
+    );
+    this.camera.lookAt(this.controls.target);
   }
 }
