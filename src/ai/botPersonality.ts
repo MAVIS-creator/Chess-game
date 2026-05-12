@@ -203,7 +203,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     clockSeconds: 25,
     searchTimeoutMs: 1100,
     mateScanTimeoutMs: 450,
-    commentaryTimeoutMs: 800
+    commentaryTimeoutMs: 2400
   },
   Impossible: {
     depth: 26,
@@ -219,7 +219,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     clockSeconds: 20,
     searchTimeoutMs: 900,
     mateScanTimeoutMs: 350,
-    commentaryTimeoutMs: 650
+    commentaryTimeoutMs: 2600
   }
 };
 

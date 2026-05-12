@@ -177,14 +177,19 @@ const parseCommentaryResponse = (raw: string): Pick<BotCommentaryResult, "commen
   try {
     const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/gim, "").trim()) as Partial<{
       commentary: string;
+      comment: string;
       style: string;
     }>;
 
+    const commentaryText =
+      typeof parsed.commentary === "string" && parsed.commentary.trim().length > 0
+        ? parsed.commentary.trim()
+        : typeof parsed.comment === "string" && parsed.comment.trim().length > 0
+          ? parsed.comment.trim()
+          : "Your move exposed something.";
+
     return {
-      commentary:
-        typeof parsed.commentary === "string" && parsed.commentary.trim().length > 0
-          ? parsed.commentary.trim()
-          : "Your move exposed something.",
+      commentary: commentaryText,
       style:
         typeof parsed.style === "string" && parsed.style.trim().length > 0
           ? parsed.style.trim()
@@ -217,16 +222,35 @@ export class BotDecisionLayer {
     }
 
     try {
-      switch (this.getProviderForDifficulty(request.difficulty)) {
-        case "groq":
-          return await this.callGroq(strictRequest, fallback);
-        case "openrouter":
-          return await this.callOpenRouter(strictRequest, fallback);
-        case "gemini":
-          return await this.callGemini(strictRequest, fallback);
-        default:
-          return fallback;
+      for (const provider of this.getProviderOrderForDifficulty(request.difficulty)) {
+        switch (provider) {
+          case "groq": {
+            const result = await this.callGroq(strictRequest, fallback);
+            if (!result.usedFallback) {
+              return result;
+            }
+            break;
+          }
+          case "openrouter": {
+            const result = await this.callOpenRouter(strictRequest, fallback);
+            if (!result.usedFallback) {
+              return result;
+            }
+            break;
+          }
+          case "gemini": {
+            const result = await this.callGemini(strictRequest, fallback);
+            if (!result.usedFallback) {
+              return result;
+            }
+            break;
+          }
+          default:
+            break;
+        }
       }
+
+      return fallback;
     } catch {
       return fallback;
     }
@@ -237,21 +261,42 @@ export class BotDecisionLayer {
   }
 
   getProviderForDifficulty(difficulty: BotDifficulty) {
+    return this.getProviderOrderForDifficulty(difficulty)[0] ?? "disabled";
+  }
+
+  private getProviderOrderForDifficulty(difficulty: BotDifficulty): BotProvider[] {
+    const available: BotProvider[] = [];
+    const pushIfAvailable = (provider: BotProvider) => {
+      if (available.includes(provider)) {
+        return;
+      }
+
+      if (provider === "groq" && import.meta.env.VITE_GROQ_API_KEY) {
+        available.push(provider);
+      }
+
+      if (provider === "openrouter" && import.meta.env.VITE_OPENROUTER_API_KEY) {
+        available.push(provider);
+      }
+
+      if (provider === "gemini" && import.meta.env.VITE_GEMINI_API_KEY) {
+        available.push(provider);
+      }
+    };
+
     if (difficulty === "Nightmare Mode" || difficulty === "Impossible") {
-      if (import.meta.env.VITE_GROQ_API_KEY) {
-        return "groq" as const;
-      }
-
-      if (import.meta.env.VITE_OPENROUTER_API_KEY) {
-        return "openrouter" as const;
-      }
-
-      if (import.meta.env.VITE_GEMINI_API_KEY) {
-        return "gemini" as const;
-      }
+      pushIfAvailable("gemini");
+      pushIfAvailable("groq");
+      pushIfAvailable("openrouter");
+      pushIfAvailable(this.provider);
+      return available.length > 0 ? available : ["disabled"];
     }
 
-    return this.provider;
+    pushIfAvailable(this.provider);
+    pushIfAvailable("groq");
+    pushIfAvailable("openrouter");
+    pushIfAvailable("gemini");
+    return available.length > 0 ? available : ["disabled"];
   }
 
   async decorateMoveCommentary(
@@ -273,23 +318,42 @@ export class BotDecisionLayer {
     selectedMove: string,
     actor: CommentaryActor
   ): Promise<BotCommentaryResult | null> {
-    const provider = this.getProviderForDifficulty(request.difficulty);
+    const providers = this.getProviderOrderForDifficulty(request.difficulty);
 
-    if (provider === "disabled") {
+    if (providers[0] === "disabled") {
       return null;
     }
 
     try {
-      switch (provider) {
-        case "groq":
-          return await this.callGroqCommentary(request, selectedMove, actor);
-        case "openrouter":
-          return await this.callOpenRouterCommentary(request, selectedMove, actor);
-        case "gemini":
-          return await this.callGeminiCommentary(request, selectedMove, actor);
-        default:
-          return null;
+      for (const provider of providers) {
+        switch (provider) {
+          case "groq": {
+            const result = await this.callGroqCommentary(request, selectedMove, actor);
+            if (result) {
+              return result;
+            }
+            break;
+          }
+          case "openrouter": {
+            const result = await this.callOpenRouterCommentary(request, selectedMove, actor);
+            if (result) {
+              return result;
+            }
+            break;
+          }
+          case "gemini": {
+            const result = await this.callGeminiCommentary(request, selectedMove, actor);
+            if (result) {
+              return result;
+            }
+            break;
+          }
+          default:
+            break;
+        }
       }
+
+      return null;
     } catch {
       return null;
     }
