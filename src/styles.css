@@ -343,6 +343,11 @@ h1 {
   line-height: 1.45;
 }
 
+.commentary-card strong {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
 .reset-button.compact {
   padding-inline: 1.2rem;
   box-shadow: none;
@@ -575,6 +580,11 @@ h1 {
     line-height: 1.3;
   }
 
+  .commentary-card strong {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
   .zoom-controls,
   .reset-button.compact {
     min-height: 2.9rem;
@@ -664,6 +674,10 @@ h1 {
 
   .mini-card strong {
     font-size: 0.8rem;
+  }
+
+  .commentary-card strong {
+    font-size: 0.78rem;
   }
 
   .zoom-controls {

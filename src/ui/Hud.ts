@@ -152,6 +152,10 @@ export class Hud {
           <span>Last move</span>
           <strong>${snapshot.lastMove ? `${snapshot.lastMove.from.toUpperCase()} → ${snapshot.lastMove.to.toUpperCase()}` : "Opening position"}</strong>
         </div>
+        <div class="mini-card commentary-card">
+          <span>Commentary</span>
+          <strong>${botState.commentary}</strong>
+        </div>
         <div class="mini-card">
           <span>Captured</span>
           <strong>White ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length} · Black ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length}</strong>

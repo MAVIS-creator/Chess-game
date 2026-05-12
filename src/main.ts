@@ -197,6 +197,7 @@ const startGame = async () => {
     timedOutSide
   );
   aiController.reset();
+  void aiController.hydrateAdaptiveMemory();
 
   const tickClock = () => {
     const snapshot = controller.getSnapshot();
@@ -262,12 +263,23 @@ const startGame = async () => {
       if (outcomeSignature !== recordedOutcomeSignature) {
         if (timedOutSide) {
           aiController.recordMatchOutcome(timedOutSide === playerColor ? "win" : "loss", outcomeSignature);
+          aiController.recordMatchHistory(
+            timedOutSide === playerColor ? "win" : "loss",
+            snapshot.moveCount,
+            `${timedOutSide === playerColor ? "AI" : playerName} wins on time.`,
+            outcomeSignature
+          );
         } else if (snapshot.statusText.toLowerCase().startsWith("draw")) {
           aiController.recordMatchOutcome("draw", outcomeSignature);
+          aiController.recordMatchHistory("draw", snapshot.moveCount, snapshot.statusText, outcomeSignature);
         } else if (snapshot.statusText.startsWith("White wins")) {
-          aiController.recordMatchOutcome(botColor === "white" ? "win" : "loss", outcomeSignature);
+          const result = botColor === "white" ? "win" : "loss";
+          aiController.recordMatchOutcome(result, outcomeSignature);
+          aiController.recordMatchHistory(result, snapshot.moveCount, snapshot.statusText, outcomeSignature);
         } else if (snapshot.statusText.startsWith("Black wins")) {
-          aiController.recordMatchOutcome(botColor === "black" ? "win" : "loss", outcomeSignature);
+          const result = botColor === "black" ? "win" : "loss";
+          aiController.recordMatchOutcome(result, outcomeSignature);
+          aiController.recordMatchHistory(result, snapshot.moveCount, snapshot.statusText, outcomeSignature);
         }
 
         recordedOutcomeSignature = outcomeSignature;
@@ -310,6 +322,10 @@ const startGame = async () => {
       timedOutSide
     );
     sync();
+
+    if (controller.getSnapshot().currentTurn === botColor) {
+      void syncAndRunBotTurn();
+    }
   });
 
   hud.bindPromotion((role: PieceRole) => {

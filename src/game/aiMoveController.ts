@@ -1,6 +1,9 @@
 import {
   buildAdaptiveSearchPlan,
+  hydrateAdaptiveProfile,
   loadAdaptiveProfile,
+  persistAdaptiveProfile,
+  persistMatchHistory,
   recordAdaptiveResult
 } from "../ai/adaptiveProfile";
 import { BotDecisionLayer, type BotDecisionResult } from "../ai/botDecisionLayer";
@@ -104,6 +107,11 @@ export class AiMoveController {
     this.notify();
   }
 
+  async hydrateAdaptiveMemory() {
+    this.adaptiveProfile = await hydrateAdaptiveProfile();
+    this.notify();
+  }
+
   setClockState(playerTimeMs: number, aiTimeMs: number, timedOutSide: PieceColor | null) {
     this.playerTimeMs = playerTimeMs;
     this.aiTimeMs = aiTimeMs;
@@ -190,6 +198,21 @@ export class AiMoveController {
 
     this.recordedGameSignature = signature;
     this.adaptiveProfile = recordAdaptiveResult(this.adaptiveProfile, this.difficulty, result);
+    void persistAdaptiveProfile(this.playerName, this.adaptiveProfile);
+  }
+
+  recordMatchHistory(result: "win" | "loss" | "draw", moveCount: number, statusText: string, signature: string) {
+    if (this.recordedGameSignature !== signature) {
+      return;
+    }
+
+    void persistMatchHistory({
+      playerName: this.playerName,
+      difficulty: this.difficulty,
+      result,
+      moveCount,
+      statusText
+    });
   }
 
   async maybeRunBotTurn() {
