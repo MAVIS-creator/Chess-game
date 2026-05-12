@@ -123,9 +123,17 @@ export class Hud {
     this.root.innerHTML = `
       <div class="top-hud ${botState.thinking ? "is-thinking" : ""}">
         <div class="turn-badge">
-          <span class="hero-label">${snapshot.inCheck ? "Check pressure" : snapshot.gameOver ? "Match finished" : "Turn"}</span>
+          <span class="hero-label">${
+            timeoutWinner
+              ? "Time Over"
+              : snapshot.gameOver
+                ? "Match finished"
+                : snapshot.inCheck
+                  ? "Check pressure"
+                  : "Turn"
+          }</span>
           <strong>${turnTitle}</strong>
-          <p>${snapshot.gameOver ? snapshot.statusText : turnSubtitle}</p>
+          <p>${timeoutWinner ? `${timeoutWinner} wins on time.` : snapshot.gameOver ? snapshot.statusText : turnSubtitle}</p>
         </div>
         <div class="status-pills">
           <span>${botState.playerName} vs AI</span>

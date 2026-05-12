@@ -91,12 +91,12 @@ export class ChessScene {
   }
 
   zoomIn() {
-    this.adjustZoom(-0.08);
+    this.adjustZoom(-0.12);
     this.controls.update();
   }
 
   zoomOut() {
-    this.adjustZoom(0.08);
+    this.adjustZoom(0.12);
     this.controls.update();
   }
 
@@ -350,17 +350,24 @@ export class ChessScene {
   private handleResize = () => {
     const { clientWidth, clientHeight } = this.mount;
     const isPhone = clientWidth <= 640;
+    const isSmallViewport = clientWidth <= 1100;
 
     if (isPhone) {
-      this.camera.fov = 52;
-      this.controls.minDistance = 0.48;
-      this.controls.maxDistance = 0.92;
+      this.camera.fov = 50;
+      this.controls.minDistance = 0.38;
+      this.controls.maxDistance = 0.78;
       this.controls.minPolarAngle = 0.82;
-      this.controls.maxPolarAngle = 1.36;
+      this.controls.maxPolarAngle = 1.3;
       this.controls.target.set(0, 0.015, 0);
-      if (this.camera.position.y < 0.4) {
-        this.camera.position.set(-0.5, 0.43, 0.02);
-      }
+      this.camera.position.set(-0.42, 0.34, 0.02);
+    } else if (isSmallViewport) {
+      this.camera.fov = 47;
+      this.controls.minDistance = 0.42;
+      this.controls.maxDistance = 0.88;
+      this.controls.minPolarAngle = 0.76;
+      this.controls.maxPolarAngle = 1.38;
+      this.controls.target.set(0, 0.018, 0);
+      this.camera.position.set(-0.46, 0.37, 0.02);
     } else {
       this.camera.fov = 45;
       this.controls.minDistance = 0.38;
