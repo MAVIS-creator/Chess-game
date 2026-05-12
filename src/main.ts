@@ -184,6 +184,8 @@ const startGame = async () => {
   let timedOutSide: PieceColor | null = null;
   let lastTickAt = performance.now();
   let activeTurnColor: PieceColor = controller.getSnapshot().currentTurn;
+  let recordedOutcomeSignature = "";
+  const botColor: PieceColor = playerColor === "white" ? "black" : "white";
 
   aiController.setPlayerName(playerName);
   aiController.setDifficulty(selectedDifficulty);
@@ -255,6 +257,23 @@ const startGame = async () => {
       lastAlertSignature = nextAlertSignature;
     }
 
+    if (timedOutSide || snapshot.gameOver) {
+      const outcomeSignature = `${snapshot.moveCount}:${snapshot.statusText}:${timedOutSide ?? "none"}`;
+      if (outcomeSignature !== recordedOutcomeSignature) {
+        if (timedOutSide) {
+          aiController.recordMatchOutcome(timedOutSide === playerColor ? "win" : "loss", outcomeSignature);
+        } else if (snapshot.statusText.toLowerCase().startsWith("draw")) {
+          aiController.recordMatchOutcome("draw", outcomeSignature);
+        } else if (snapshot.statusText.startsWith("White wins")) {
+          aiController.recordMatchOutcome(botColor === "white" ? "win" : "loss", outcomeSignature);
+        } else if (snapshot.statusText.startsWith("Black wins")) {
+          aiController.recordMatchOutcome(botColor === "black" ? "win" : "loss", outcomeSignature);
+        }
+
+        recordedOutcomeSignature = outcomeSignature;
+      }
+    }
+
     chessScene.syncBoardState(snapshot.pieces, snapshot.lastMove);
     chessScene.highlightSquares(
       snapshot.selectedSquare,
@@ -284,6 +303,7 @@ const startGame = async () => {
     timedOutSide = null;
     activeTurnColor = controller.getSnapshot().currentTurn;
     lastTickAt = performance.now();
+    recordedOutcomeSignature = "";
     aiController.setClockState(
       remainingMs[playerColor],
       remainingMs[playerColor === "white" ? "black" : "white"],

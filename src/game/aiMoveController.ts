@@ -1,3 +1,8 @@
+import {
+  buildAdaptiveSearchPlan,
+  loadAdaptiveProfile,
+  recordAdaptiveResult
+} from "../ai/adaptiveProfile";
 import { BotDecisionLayer, type BotDecisionResult } from "../ai/botDecisionLayer";
 import {
   BOT_PERSONALITIES,
@@ -56,6 +61,8 @@ export class AiMoveController {
   private timedOutSide: PieceColor | null = null;
   private canContinueTurn: (() => boolean) | null = null;
   private stateListener: (() => void) | null = null;
+  private adaptiveProfile = loadAdaptiveProfile();
+  private recordedGameSignature: string | null = null;
 
   constructor(
     private readonly controller: ChessController,
@@ -172,7 +179,17 @@ export class AiMoveController {
     this.source = "stockfish";
     this.thinking = false;
     this.thinkingStage = null;
+    this.recordedGameSignature = null;
     this.notify();
+  }
+
+  recordMatchOutcome(result: "win" | "loss" | "draw", signature: string) {
+    if (this.recordedGameSignature === signature) {
+      return;
+    }
+
+    this.recordedGameSignature = signature;
+    this.adaptiveProfile = recordAdaptiveResult(this.adaptiveProfile, this.difficulty, result);
   }
 
   async maybeRunBotTurn() {
@@ -185,9 +202,14 @@ export class AiMoveController {
     this.commentary = "The board is waiting for the reply.";
     this.thinkingStage = "AI is thinking";
     this.notify();
+    const adaptivePlan = buildAdaptiveSearchPlan(
+      this.adaptiveProfile,
+      this.difficulty,
+      DIFFICULTY_CONFIG[this.difficulty].moveTimeMs
+    );
 
     try {
-      await this.pause(320);
+      await this.pause(adaptivePlan.openingPauseMs);
       this.thinkingStage = "Scanning for forced mate";
       this.notify();
       if (!this.canProceed()) {
@@ -199,7 +221,7 @@ export class AiMoveController {
           fen: this.controller.getFen(),
           depth: DIFFICULTY_CONFIG[this.difficulty].depth,
           multiPv: 1,
-          mate: mateScanDepth,
+          mate: mateScanDepth + adaptivePlan.extraMateDepth,
           timeoutMs: DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs
         });
 
@@ -234,7 +256,7 @@ export class AiMoveController {
         fen: this.controller.getFen(),
         depth: DIFFICULTY_CONFIG[this.difficulty].depth,
         multiPv: DIFFICULTY_CONFIG[this.difficulty].multiPv,
-        moveTimeMs: DIFFICULTY_CONFIG[this.difficulty].moveTimeMs,
+        moveTimeMs: adaptivePlan.moveTimeMs,
         timeoutMs: DIFFICULTY_CONFIG[this.difficulty].searchTimeoutMs
       });
 
@@ -282,7 +304,7 @@ export class AiMoveController {
         candidateMoves: analysis.candidates
       });
 
-      await this.pause(220);
+      await this.pause(adaptivePlan.finalizePauseMs);
       this.thinkingStage = "Finalizing";
       this.notify();
       if (!this.canProceed()) {

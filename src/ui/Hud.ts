@@ -77,7 +77,6 @@ export class Hud {
           <span class="hero-label">Time Over</span>
           <strong>${timeoutWinner} wins on time.</strong>
           <p>Press reset to start another clocked match.</p>
-          <button class="reset-button" type="button" data-action="reset">Play again</button>
         </div>
       `
       : snapshot.gameOver
@@ -86,7 +85,6 @@ export class Hud {
           <span class="hero-label">Game Over</span>
           <strong>${snapshot.statusText}</strong>
           <p>Press reset to start a fresh match.</p>
-          <button class="reset-button" type="button" data-action="reset">Play again</button>
         </div>
       `
       : humanInCheck
