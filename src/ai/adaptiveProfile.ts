@@ -210,7 +210,7 @@ export const persistAdaptiveProfile = async (profile: AdaptiveProfile) => {
   }
 };
 
-export const persistMatchHistory = async (entry: Omit<MatchHistoryEntry, "sessionId">) => {
+export const persistMatchHistory = async (entry: MatchHistoryEntry) => {
   if (!hasSupabaseConfig()) {
     return;
   }
@@ -220,7 +220,6 @@ export const persistMatchHistory = async (entry: Omit<MatchHistoryEntry, "sessio
       method: "POST",
       headers: supabaseHeaders(),
       body: JSON.stringify({
-        session_id: getSessionId(),
         player_name: entry.playerName,
         difficulty: entry.difficulty,
         result: entry.result,

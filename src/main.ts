@@ -40,7 +40,7 @@ if (!app) {
 
 const soundboard = new ChessSoundboard();
 let selectedDifficulty: BotDifficulty = DEFAULT_DIFFICULTY;
-let playerName = "Player";
+let playerName = "";
 let activePlayer: PlayerIdentity | null = null;
 const searchParams = new URLSearchParams(window.location.search);
 let activeSessionCleanup: (() => void) | null = null;
@@ -69,27 +69,27 @@ const renderAuth = () => {
         </div>
         <h1>Sign in before the board opens.</h1>
         <p class="lede">
-          Use your player name and password to keep your profile, adaptive AI history, and match memory synced.
+          Use your name and password to open the board and start a match.
         </p>
         <div class="menu-notes">
           <div class="menu-chip"><span>Login</span><strong>Name and password</strong></div>
-          <div class="menu-chip"><span>Memory</span><strong>Adaptive profile sync</strong></div>
-          <div class="menu-chip"><span>Session</span><strong>Return to your board later</strong></div>
+          <div class="menu-chip"><span>Modes</span><strong>Choose your challenge</strong></div>
+          <div class="menu-chip"><span>Match</span><strong>Board opens right after setup</strong></div>
         </div>
       </section>
       <aside class="menu-panel auth-panel">
         <div class="hero-status">
           <span class="hero-label">${authMode === "login" ? "Welcome back" : "Create account"}</span>
           <strong>${authMode === "login" ? "Log in to continue." : "Claim your player profile."}</strong>
-          <p>${authMode === "login" ? "Your adaptive AI history will load when you sign in." : "If signup says email confirmation is required, disable email confirmation in Supabase Auth settings for this username-password flow."}</p>
+          <p>${authMode === "login" ? "Enter your details and continue to the match menu." : "Create your login once, then come back anytime and start a new match."}</p>
         </div>
         <div class="auth-switch">
           <button class="auth-switch-button ${authMode === "login" ? "is-active" : ""}" type="button" data-auth-mode="login">Login</button>
           <button class="auth-switch-button ${authMode === "signup" ? "is-active" : ""}" type="button" data-auth-mode="signup">Sign up</button>
         </div>
         <label class="select-block">
-          <span>Player name</span>
-          <input id="auth-player-name" class="menu-input" type="text" maxlength="20" placeholder="Enter your player name" value="${playerName}" />
+          <span>Name</span>
+          <input id="auth-player-name" class="menu-input" type="text" maxlength="20" placeholder="Name" value="${playerName}" />
         </label>
         <label class="select-block">
           <span>Password</span>
@@ -107,7 +107,7 @@ const renderAuth = () => {
   const modeButtons = document.querySelectorAll<HTMLButtonElement>("[data-auth-mode]");
 
   nameInput?.addEventListener("input", () => {
-    playerName = nameInput.value.trim() || "Player";
+    playerName = nameInput.value.trim();
   });
 
   for (const button of modeButtons) {
@@ -195,11 +195,11 @@ const renderMenu = () => {
         <div class="hero-status">
           <span class="hero-label">Match setup</span>
           <strong>Set the match once, then go straight into play.</strong>
-          <p>Your account stays signed in, your name appears in the HUD, and difficulty decides how sharp the AI will be.</p>
+          <p>Set your difficulty here, then head straight into the match.</p>
         </div>
         <label class="select-block">
-          <span>Player name</span>
-          <input id="menu-player-name" class="menu-input" type="text" maxlength="20" placeholder="Enter your name" value="${playerName}" />
+          <span>Name</span>
+          <input id="menu-player-name" class="menu-input" type="text" maxlength="20" placeholder="Name" value="${playerName}" />
         </label>
         <label class="select-block">
           <span>Difficulty</span>
@@ -237,11 +237,11 @@ const renderMenu = () => {
   });
 
   playerNameInput?.addEventListener("input", () => {
-    playerName = playerNameInput.value.trim() || "Player";
+    playerName = playerNameInput.value.trim();
   });
 
   startButton?.addEventListener("click", () => {
-    playerName = playerNameInput?.value.trim() || "Player";
+    playerName = playerNameInput?.value.trim() || activePlayer?.displayName || "Guest";
     soundboard.prime();
     void startGame();
   });

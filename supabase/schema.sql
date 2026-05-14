@@ -1,6 +1,5 @@
 create table if not exists public.cedar_ai_profiles (
-  session_id text primary key,
-  player_name text not null default 'Player',
+  profile_key text primary key,
   games_played integer not null default 0 check (games_played >= 0),
   wins integer not null default 0 check (wins >= 0),
   losses integer not null default 0 check (losses >= 0),
@@ -16,8 +15,7 @@ create table if not exists public.cedar_ai_profiles (
 
 create table if not exists public.cedar_match_history (
   id bigint generated always as identity primary key,
-  session_id text not null,
-  player_name text not null default 'Player',
+  player_name text not null default 'Guest',
   difficulty text not null,
   result text not null check (result in ('win', 'loss', 'draw')),
   move_count integer not null default 0 check (move_count >= 0),
@@ -25,8 +23,8 @@ create table if not exists public.cedar_match_history (
   created_at timestamptz not null default timezone('utc', now())
 );
 
-create index if not exists cedar_match_history_session_id_idx
-  on public.cedar_match_history (session_id, created_at desc);
+create index if not exists cedar_match_history_created_at_idx
+  on public.cedar_match_history (created_at desc);
 
 alter table public.cedar_ai_profiles enable row level security;
 alter table public.cedar_match_history enable row level security;
