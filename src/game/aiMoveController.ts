@@ -58,7 +58,7 @@ export class AiMoveController {
   private commentary = "The board is waiting.";
   private lastStyle = "opening";
   private source: "stockfish" | "llm" = "stockfish";
-  private playerName = "Player";
+  private playerName = "Guest";
   private playerTimeMs = 0;
   private aiTimeMs = 0;
   private timedOutSide: PieceColor | null = null;
@@ -103,7 +103,7 @@ export class AiMoveController {
   }
 
   setPlayerName(playerName: string) {
-    this.playerName = playerName.trim() || "Player";
+    this.playerName = playerName.trim() || "Guest";
     this.notify();
   }
 
@@ -198,7 +198,7 @@ export class AiMoveController {
 
     this.recordedGameSignature = signature;
     this.adaptiveProfile = recordAdaptiveResult(this.adaptiveProfile, this.difficulty, result);
-    void persistAdaptiveProfile(this.playerName, this.adaptiveProfile);
+    void persistAdaptiveProfile(this.adaptiveProfile);
   }
 
   recordMatchHistory(result: "win" | "loss" | "draw", moveCount: number, statusText: string, signature: string) {

@@ -47,7 +47,7 @@ export const getCurrentPlayer = async () => {
 
 export const signInPlayer = async (username: string, password: string) => {
   if (!supabase) {
-    throw new Error("Supabase auth is not configured.");
+    throw new Error("Login is unavailable right now.");
   }
 
   const normalized = normalizeUsername(username);
@@ -61,11 +61,11 @@ export const signInPlayer = async (username: string, password: string) => {
   });
 
   if (error) {
-    throw error;
+    throw new Error("Wrong name or password.");
   }
 
   if (!data.user) {
-    throw new Error("Login did not return a user.");
+    throw new Error("Login could not be completed.");
   }
 
   return userToIdentity(data.user);
@@ -73,7 +73,7 @@ export const signInPlayer = async (username: string, password: string) => {
 
 export const signUpPlayer = async (username: string, password: string) => {
   if (!supabase) {
-    throw new Error("Supabase auth is not configured.");
+    throw new Error("Sign up is unavailable right now.");
   }
 
   const normalized = normalizeUsername(username);
@@ -93,17 +93,15 @@ export const signUpPlayer = async (username: string, password: string) => {
   });
 
   if (error) {
-    throw error;
+    throw new Error("That name is unavailable or the account could not be created.");
   }
 
   if (!data.user) {
-    throw new Error("Account creation did not return a user.");
+    throw new Error("Account could not be created.");
   }
 
   if (!data.session) {
-    throw new Error(
-      "Account created, but email confirmation is still enabled in Supabase. Disable email confirmation for this username-password flow."
-    );
+    throw new Error("Account created. Log in to continue.");
   }
 
   return userToIdentity(data.user);

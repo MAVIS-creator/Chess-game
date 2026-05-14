@@ -1,7 +1,7 @@
 import type { BotDifficulty } from "./botPersonality";
 
 const STORAGE_KEY = "cedar-chess-ai-adaptive-profile";
-const SESSION_KEY = "cedar-chess-ai-session-id";
+const PROFILE_KEY = "global";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -25,7 +25,6 @@ export interface AdaptiveSearchPlan {
 }
 
 export interface MatchHistoryEntry {
-  sessionId: string;
   playerName: string;
   difficulty: BotDifficulty;
   result: "win" | "loss" | "draw";
@@ -52,21 +51,6 @@ const difficultyWeight: Record<BotDifficulty, number> = {
   "Boss Mode": 3,
   "Nightmare Mode": 4,
   Impossible: 5
-};
-
-const getSessionId = () => {
-  try {
-    const existing = window.localStorage.getItem(SESSION_KEY);
-    if (existing) {
-      return existing;
-    }
-
-    const created = window.crypto.randomUUID();
-    window.localStorage.setItem(SESSION_KEY, created);
-    return created;
-  } catch {
-    return "local-session";
-  }
 };
 
 const hasSupabaseConfig = () => Boolean(SUPABASE_URL && SUPABASE_KEY);
@@ -145,9 +129,8 @@ export const hydrateAdaptiveProfile = async () => {
   }
 
   try {
-    const sessionId = getSessionId();
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/cedar_ai_profiles?session_id=eq.${encodeURIComponent(sessionId)}&select=games_played,wins,losses,draws,strong_games,experience,pressure_index,endgame_prep,opening_prep&limit=1`,
+      `${SUPABASE_URL}/rest/v1/cedar_ai_profiles?profile_key=eq.${PROFILE_KEY}&select=games_played,wins,losses,draws,strong_games,experience,pressure_index,endgame_prep,opening_prep&limit=1`,
       {
         headers: {
           apikey: SUPABASE_KEY ?? "",
@@ -196,7 +179,7 @@ export const hydrateAdaptiveProfile = async () => {
   }
 };
 
-export const persistAdaptiveProfile = async (playerName: string, profile: AdaptiveProfile) => {
+export const persistAdaptiveProfile = async (profile: AdaptiveProfile) => {
   if (!hasSupabaseConfig()) {
     return;
   }
@@ -209,8 +192,7 @@ export const persistAdaptiveProfile = async (playerName: string, profile: Adapti
         Prefer: "resolution=merge-duplicates,return=minimal"
       },
       body: JSON.stringify({
-        session_id: getSessionId(),
-        player_name: playerName,
+        profile_key: PROFILE_KEY,
         games_played: profile.gamesPlayed,
         wins: profile.wins,
         losses: profile.losses,
