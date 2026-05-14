@@ -24,6 +24,7 @@ export class FlatChessBoard {
   private lastPieces: GamePieceState[] = [];
   private lastSelected: SquareId | null = null;
   private lastLegalTargets: SquareId[] = [];
+  private lastCaptureTargets: SquareId[] = [];
   private lastMove: MoveSummary | null = null;
   private lastCheckedKingSquare: SquareId | null = null;
 
@@ -59,6 +60,7 @@ export class FlatChessBoard {
     this.highlightSquares(
       this.lastSelected,
       this.lastLegalTargets,
+      this.lastCaptureTargets,
       this.lastMove,
       this.lastCheckedKingSquare
     );
@@ -75,19 +77,23 @@ export class FlatChessBoard {
   highlightSquares(
     selected: SquareId | null,
     legalTargets: SquareId[],
+    captureTargets: SquareId[],
     lastMove: MoveSummary | null,
     checkedKingSquare: SquareId | null = null
   ) {
     this.lastSelected = selected;
     this.lastLegalTargets = [...legalTargets];
+    this.lastCaptureTargets = [...captureTargets];
     this.lastMove = lastMove;
     this.lastCheckedKingSquare = checkedKingSquare;
     const legalSet = new Set(legalTargets);
+    const captureSet = new Set(captureTargets);
     const lastMoveSquares = new Set<SquareId>(lastMove ? [lastMove.from, lastMove.to] : []);
 
     for (const [square, element] of this.squareElements) {
       element.classList.toggle("is-selected", square === selected);
       element.classList.toggle("is-legal", legalSet.has(square));
+      element.classList.toggle("is-capture", captureSet.has(square));
       element.classList.toggle("is-last-move", lastMoveSquares.has(square));
       element.classList.toggle("is-check", square === checkedKingSquare);
     }

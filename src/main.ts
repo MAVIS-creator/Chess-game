@@ -272,6 +272,7 @@ type BoardRenderer = {
   highlightSquares: (
     selected: SquareId | null,
     legalTargets: SquareId[],
+    captureTargets: SquareId[],
     lastMove: MoveSummary | null,
     checkedKingSquare?: SquareId | null
   ) => void;
@@ -424,8 +425,19 @@ const startGame = async () => {
 
   const sync = () => {
     const snapshot = controller.getSnapshot();
-    const displayTargets =
-      aiController.shouldHideHints() && snapshot.currentTurn === playerColor ? [] : snapshot.legalTargets;
+    const displayTargets = snapshot.legalTargets;
+    const selectedPiece = snapshot.selectedSquare
+      ? snapshot.pieces.find((piece) => !piece.captured && piece.square === snapshot.selectedSquare) ?? null
+      : null;
+    const captureTargets =
+      selectedPiece === null
+        ? []
+        : displayTargets.filter((target) =>
+            snapshot.pieces.some(
+              (piece) =>
+                !piece.captured && piece.square === target && piece.color !== selectedPiece.color
+            )
+          );
 
     if (snapshot.moveCount > lastAudibleMoveCount && snapshot.lastMoveSoundCue) {
       soundboard.playCue(snapshot.lastMoveSoundCue);
@@ -492,6 +504,7 @@ const startGame = async () => {
     chessScene.highlightSquares(
       snapshot.selectedSquare,
       displayTargets,
+      captureTargets,
       snapshot.lastMove,
       snapshot.checkedKingSquare
     );
