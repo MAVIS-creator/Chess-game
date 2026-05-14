@@ -201,33 +201,63 @@ export class Hud {
       </div>
     `;
 
+    const desktopHudMarkup = `
+      <div class="timer-bar timer-bar-top ${snapshot.currentTurn === botState.botColor && !timeoutWinner ? "is-active" : ""}">
+        <span class="timer-side">AI · ${botState.botColor.toUpperCase()}</span>
+        <strong>${formatClock(botState.aiTimeMs)}</strong>
+      </div>
+
+      <div class="info-bar">
+        <span class="info-pill">${infoTitle}</span>
+        <span class="info-pill">${difficultyIcon(botState.difficulty)} ${botState.difficulty}</span>
+        <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
+      </div>
+
+      <div class="desktop-card-row">${commentaryMarkup}${lastMoveMarkup}${capturedMarkup}</div>
+      <div class="desktop-drawer-actions">${drawerActionsMarkup}</div>
+
+      <div class="info-note">
+        <strong>${infoText}</strong>
+      </div>
+
+      <div class="timer-bar timer-bar-bottom ${snapshot.currentTurn === botState.playerColor && !timeoutWinner ? "is-active" : ""}">
+        <span class="timer-side">${botState.playerName} · ${botState.playerColor.toUpperCase()}</span>
+        <strong>${formatClock(botState.playerTimeMs)}</strong>
+      </div>
+
+      ${desktopControlsMarkup}
+    `;
+
+    const compactHudMarkup = `
+      <div class="timer-bar timer-bar-top ${snapshot.currentTurn === botState.botColor && !timeoutWinner ? "is-active" : ""}">
+        <span class="timer-side">AI · ${botState.botColor.toUpperCase()}</span>
+        <strong>${formatClock(botState.aiTimeMs)}</strong>
+      </div>
+
+      <div class="info-bar compact-info-bar">
+        <span class="info-pill">${infoTitle}</span>
+        <span class="info-pill">${difficultyIcon(botState.difficulty)} ${botState.difficulty}</span>
+        <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
+      </div>
+
+      <div class="control-drawer ${this.menuOpen ? "is-open" : ""}">
+        ${commentaryMarkup}
+        ${lastMoveMarkup}
+        ${capturedMarkup}
+        ${drawerActionsMarkup}
+      </div>
+
+      <div class="timer-bar timer-bar-bottom ${snapshot.currentTurn === botState.playerColor && !timeoutWinner ? "is-active" : ""}">
+        <span class="timer-side">${botState.playerName} · ${botState.playerColor.toUpperCase()}</span>
+        <strong>${formatClock(botState.playerTimeMs)}</strong>
+      </div>
+
+      ${mobileControlsMarkup}
+    `;
+
     this.root.innerHTML = `
       <div class="hud-frame">
-        <div class="timer-bar timer-bar-top ${snapshot.currentTurn === botState.botColor && !timeoutWinner ? "is-active" : ""}">
-          <span class="timer-side">AI · ${botState.botColor.toUpperCase()}</span>
-          <strong>${formatClock(botState.aiTimeMs)}</strong>
-        </div>
-
-        <div class="info-bar">
-          <span class="info-pill">${infoTitle}</span>
-          <span class="info-pill">${difficultyIcon(botState.difficulty)} ${botState.difficulty}</span>
-          <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
-        </div>
-
-        ${compactLayout
-          ? `<div class="control-drawer ${this.menuOpen ? "is-open" : ""}">${commentaryMarkup}${lastMoveMarkup}${capturedMarkup}${drawerActionsMarkup}</div>`
-          : `<div class="desktop-card-row">${commentaryMarkup}${lastMoveMarkup}${capturedMarkup}</div><div class="desktop-drawer-actions">${drawerActionsMarkup}</div>`}
-
-        <div class="info-note">
-          <strong>${infoText}</strong>
-        </div>
-
-        <div class="timer-bar timer-bar-bottom ${snapshot.currentTurn === botState.playerColor && !timeoutWinner ? "is-active" : ""}">
-          <span class="timer-side">${botState.playerName} · ${botState.playerColor.toUpperCase()}</span>
-          <strong>${formatClock(botState.playerTimeMs)}</strong>
-        </div>
-
-        ${compactLayout ? mobileControlsMarkup : desktopControlsMarkup}
+        ${compactLayout ? compactHudMarkup : desktopHudMarkup}
       </div>
       ${overlayMarkup}
       ${promotionMarkup}

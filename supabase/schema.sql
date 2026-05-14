@@ -19,7 +19,7 @@ create table if not exists public.cedar_match_history (
   player_name text not null default 'Guest',
   difficulty text not null,
   result text not null check (result in ('win', 'loss', 'draw')),
-  move_count integer not null default 0 check (move_count >= 0),
+  move_count integeingr not null default 0 check (move_count >= 0),
   status_text text not null,
   created_at timestamptz not null default timezone('utc', now())
 );
