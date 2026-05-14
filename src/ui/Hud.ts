@@ -31,6 +31,7 @@ export class Hud {
   private onPromote: ((role: PieceRole) => void) | null = null;
   private onCycleCamera: (() => void) | null = null;
   private onBackToMenu: (() => void) | null = null;
+  private onLogout: (() => void) | null = null;
   private onExit: (() => void) | null = null;
   private menuOpen = false;
 
@@ -52,6 +53,10 @@ export class Hud {
 
   bindBackToMenu(handler: () => void) {
     this.onBackToMenu = handler;
+  }
+
+  bindLogout(handler: () => void) {
+    this.onLogout = handler;
   }
 
   bindExit(handler: () => void) {
@@ -169,6 +174,7 @@ export class Hud {
           </div>
           <div class="drawer-actions">
             <button class="drawer-button" type="button" data-action="back-to-menu">Back to menu</button>
+            <button class="drawer-button" type="button" data-action="logout">Log out</button>
             <button class="drawer-button danger" type="button" data-action="exit">Exit</button>
           </div>
         </div>
@@ -217,6 +223,11 @@ export class Hud {
 
     if (target.dataset.action === "back-to-menu") {
       this.onBackToMenu?.();
+      return;
+    }
+
+    if (target.dataset.action === "logout") {
+      this.onLogout?.();
       return;
     }
 

@@ -1,5 +1,13 @@
 import "./styles.css";
 import {
+  getCurrentPlayer,
+  onPlayerSessionChange,
+  signInPlayer,
+  signOutPlayer,
+  signUpPlayer,
+  type PlayerIdentity
+} from "./auth/playerAuth";
+import {
   BOT_DIFFICULTIES,
   DEFAULT_DIFFICULTY,
   DIFFICULTY_CONFIG,
@@ -33,12 +41,119 @@ if (!app) {
 const soundboard = new ChessSoundboard();
 let selectedDifficulty: BotDifficulty = DEFAULT_DIFFICULTY;
 let playerName = "Player";
+let activePlayer: PlayerIdentity | null = null;
 const searchParams = new URLSearchParams(window.location.search);
 let activeSessionCleanup: (() => void) | null = null;
+let authListenerCleanup: (() => void) | null = null;
+let authMode: "login" | "signup" = "login";
+let authError = "";
+
+const renderAuth = () => {
+  activeSessionCleanup?.();
+  activeSessionCleanup = null;
+  document.body.classList.remove("game-mode");
+  app.innerHTML = `
+    <main class="menu-shell auth-shell">
+      <section class="menu-hero auth-hero">
+        <div class="brand-mark" aria-hidden="true">
+          <div class="brand-emblem">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="brand-copy">
+            <p class="eyebrow">Cedar Chess</p>
+            <strong>Player Access</strong>
+          </div>
+        </div>
+        <h1>Sign in before the board opens.</h1>
+        <p class="lede">
+          Use your player name and password to keep your profile, adaptive AI history, and match memory synced.
+        </p>
+        <div class="menu-notes">
+          <div class="menu-chip"><span>Login</span><strong>Name and password</strong></div>
+          <div class="menu-chip"><span>Memory</span><strong>Adaptive profile sync</strong></div>
+          <div class="menu-chip"><span>Session</span><strong>Return to your board later</strong></div>
+        </div>
+      </section>
+      <aside class="menu-panel auth-panel">
+        <div class="hero-status">
+          <span class="hero-label">${authMode === "login" ? "Welcome back" : "Create account"}</span>
+          <strong>${authMode === "login" ? "Log in to continue." : "Claim your player profile."}</strong>
+          <p>${authMode === "login" ? "Your adaptive AI history will load when you sign in." : "If signup says email confirmation is required, disable email confirmation in Supabase Auth settings for this username-password flow."}</p>
+        </div>
+        <div class="auth-switch">
+          <button class="auth-switch-button ${authMode === "login" ? "is-active" : ""}" type="button" data-auth-mode="login">Login</button>
+          <button class="auth-switch-button ${authMode === "signup" ? "is-active" : ""}" type="button" data-auth-mode="signup">Sign up</button>
+        </div>
+        <label class="select-block">
+          <span>Player name</span>
+          <input id="auth-player-name" class="menu-input" type="text" maxlength="20" placeholder="Enter your player name" value="${playerName}" />
+        </label>
+        <label class="select-block">
+          <span>Password</span>
+          <input id="auth-password" class="menu-input" type="password" minlength="6" placeholder="Enter your password" />
+        </label>
+        ${authError ? `<p class="auth-error">${authError}</p>` : ""}
+        <button class="start-button" id="auth-submit" type="button">${authMode === "login" ? "Enter game" : "Create account"}</button>
+      </aside>
+    </main>
+  `;
+
+  const nameInput = document.querySelector<HTMLInputElement>("#auth-player-name");
+  const passwordInput = document.querySelector<HTMLInputElement>("#auth-password");
+  const submitButton = document.querySelector<HTMLButtonElement>("#auth-submit");
+  const modeButtons = document.querySelectorAll<HTMLButtonElement>("[data-auth-mode]");
+
+  nameInput?.addEventListener("input", () => {
+    playerName = nameInput.value.trim() || "Player";
+  });
+
+  for (const button of modeButtons) {
+    button.addEventListener("click", () => {
+      authMode = button.dataset.authMode === "signup" ? "signup" : "login";
+      authError = "";
+      renderAuth();
+    });
+  }
+
+  submitButton?.addEventListener("click", async () => {
+    const username = nameInput?.value.trim() || "";
+    const password = passwordInput?.value ?? "";
+
+    if (!username || password.length < 6) {
+      authError = "Enter a player name and a password with at least 6 characters.";
+      renderAuth();
+      return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = authMode === "login" ? "Checking..." : "Creating...";
+
+    try {
+      activePlayer =
+        authMode === "login"
+          ? await signInPlayer(username, password)
+          : await signUpPlayer(username, password);
+      authError = "";
+      playerName = activePlayer.displayName;
+      renderMenu();
+    } catch (error) {
+      authError = error instanceof Error ? error.message : "Authentication failed.";
+      renderAuth();
+    }
+  });
+};
 
 const renderMenu = () => {
   activeSessionCleanup?.();
   activeSessionCleanup = null;
+  if (!activePlayer) {
+    renderAuth();
+    return;
+  }
+  playerName = activePlayer.displayName;
   document.body.classList.remove("game-mode");
   app.innerHTML = `
     <main class="menu-shell">
@@ -51,8 +166,8 @@ const renderMenu = () => {
             <span></span>
           </div>
           <div class="brand-copy">
-            <p class="eyebrow">Cedar Chess</p>
-            <strong>Classic Match</strong>
+          <p class="eyebrow">Cedar Chess</p>
+            <strong>${activePlayer.displayName}</strong>
           </div>
         </div>
         <h1>A clean wooden chess table, a focused match, and a strong AI opponent.</h1>
@@ -80,7 +195,7 @@ const renderMenu = () => {
         <div class="hero-status">
           <span class="hero-label">Match setup</span>
           <strong>Set the match once, then go straight into play.</strong>
-          <p>Your name appears in the top HUD, and difficulty decides how sharp the AI will be.</p>
+          <p>Your account stays signed in, your name appears in the HUD, and difficulty decides how sharp the AI will be.</p>
         </div>
         <label class="select-block">
           <span>Player name</span>
@@ -159,6 +274,11 @@ const renderGameShell = () => {
 };
 
 const startGame = async () => {
+  if (!activePlayer) {
+    renderAuth();
+    return;
+  }
+
   document.body.classList.add("game-mode");
   renderGameShell();
 
@@ -352,6 +472,13 @@ const startGame = async () => {
     renderMenu();
   });
 
+  hud.bindLogout(() => {
+    void signOutPlayer().finally(() => {
+      activePlayer = null;
+      renderAuth();
+    });
+  });
+
   hud.bindExit(() => {
     activeSessionCleanup?.();
     activeSessionCleanup = null;
@@ -412,9 +539,42 @@ const startGame = async () => {
   }
 };
 
-if (searchParams.get("autostart") === "1") {
-  soundboard.prime();
-  void startGame();
-} else {
-  renderMenu();
-}
+const initApp = async () => {
+  activePlayer = await getCurrentPlayer();
+
+  authListenerCleanup?.();
+  authListenerCleanup = onPlayerSessionChange((_event, session) => {
+    activePlayer = session?.user
+      ? {
+          id: session.user.id,
+          username:
+            typeof session.user.user_metadata.username === "string" && session.user.user_metadata.username.length > 0
+              ? session.user.user_metadata.username
+              : session.user.email?.split("@")[0] ?? "player",
+          displayName:
+            typeof session.user.user_metadata.display_name === "string" &&
+            session.user.user_metadata.display_name.length > 0
+              ? session.user.user_metadata.display_name
+              : typeof session.user.user_metadata.username === "string" &&
+                  session.user.user_metadata.username.length > 0
+                ? session.user.user_metadata.username
+                : "Player"
+        }
+      : null;
+  });
+
+  if (searchParams.get("autostart") === "1" && activePlayer) {
+    soundboard.prime();
+    await startGame();
+    return;
+  }
+
+  if (activePlayer) {
+    renderMenu();
+    return;
+  }
+
+  renderAuth();
+};
+
+void initApp();

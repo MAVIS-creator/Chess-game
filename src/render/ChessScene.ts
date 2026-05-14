@@ -353,6 +353,7 @@ export class ChessScene {
     const { clientWidth, clientHeight } = this.mount;
     const isPhone = clientWidth <= 640;
     const isSmallViewport = clientWidth <= 1100;
+    const shouldForceFlatPreset = isPhone && this.activeCameraPreset === "perspective";
 
     if (isPhone) {
       this.camera.fov = 50;
@@ -380,6 +381,11 @@ export class ChessScene {
     this.camera.aspect = clientWidth / clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(clientWidth, clientHeight);
+    if (shouldForceFlatPreset) {
+      this.activeCameraPreset = "top-down";
+    } else if (!isPhone && this.activeCameraPreset === "top-down") {
+      this.activeCameraPreset = "perspective";
+    }
     this.applyCameraPreset(this.activeCameraPreset, null);
     this.controls.update();
   };

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "chess.js": "^1.4.0",
     "stockfish": "^18.0.7",
     "three": "^0.180.0"

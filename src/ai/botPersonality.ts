@@ -128,7 +128,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
   Easy: {
     depth: 8,
     multiPv: 5,
-    moveTimeMs: 300,
+    moveTimeMs: 180,
     temperature: 0.9,
     commentaryFallback: "I will make my move.",
     selectionBias: "weak",
@@ -137,14 +137,14 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxCandidateCount: 5,
     forceBestMove: false,
     clockSeconds: 60,
-    searchTimeoutMs: 1600,
+    searchTimeoutMs: 700,
     mateScanTimeoutMs: 0,
-    commentaryTimeoutMs: 900
+    commentaryTimeoutMs: 1200
   },
   Normal: {
     depth: 11,
     multiPv: 5,
-    moveTimeMs: 700,
+    moveTimeMs: 320,
     temperature: 0.65,
     commentaryFallback: "Your turn shaped the board. Here is mine.",
     selectionBias: "balanced",
@@ -153,14 +153,14 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxCandidateCount: 4,
     forceBestMove: false,
     clockSeconds: 50,
-    searchTimeoutMs: 1900,
+    searchTimeoutMs: 900,
     mateScanTimeoutMs: 0,
-    commentaryTimeoutMs: 1000
+    commentaryTimeoutMs: 1300
   },
   Hard: {
-    depth: 15,
+    depth: 16,
     multiPv: 4,
-    moveTimeMs: 1200,
+    moveTimeMs: 520,
     temperature: 0.4,
     commentaryFallback: "You left a seam. I am pressing it.",
     selectionBias: "strong",
@@ -169,14 +169,14 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxCandidateCount: 3,
     forceBestMove: false,
     clockSeconds: 40,
-    searchTimeoutMs: 1800,
-    mateScanTimeoutMs: 650,
-    commentaryTimeoutMs: 1200
+    searchTimeoutMs: 1100,
+    mateScanTimeoutMs: 450,
+    commentaryTimeoutMs: 1400
   },
   "Boss Mode": {
-    depth: 20,
+    depth: 21,
     multiPv: 3,
-    moveTimeMs: 2000,
+    moveTimeMs: 900,
     temperature: 0.1,
     commentaryFallback: "You gave me a target. I accepted.",
     selectionBias: "attacking",
@@ -185,14 +185,14 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxCandidateCount: 2,
     forceBestMove: false,
     clockSeconds: 30,
-    searchTimeoutMs: 2000,
-    mateScanTimeoutMs: 700,
-    commentaryTimeoutMs: 1300
+    searchTimeoutMs: 1450,
+    mateScanTimeoutMs: 550,
+    commentaryTimeoutMs: 1500
   },
   "Nightmare Mode": {
-    depth: 24,
+    depth: 26,
     multiPv: 1,
-    moveTimeMs: 2400,
+    moveTimeMs: 1800,
     temperature: 0,
     commentaryFallback: "No room left.",
     selectionBias: "attacking",
@@ -201,14 +201,14 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxCandidateCount: 1,
     forceBestMove: true,
     clockSeconds: 25,
-    searchTimeoutMs: 1100,
-    mateScanTimeoutMs: 450,
+    searchTimeoutMs: 2200,
+    mateScanTimeoutMs: 700,
     commentaryTimeoutMs: 2400
   },
   Impossible: {
-    depth: 26,
+    depth: 30,
     multiPv: 1,
-    moveTimeMs: 1400,
+    moveTimeMs: 2400,
     temperature: 0,
     commentaryFallback: "Your clock bleeds before the board does.",
     selectionBias: "attacking",
@@ -217,8 +217,8 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxCandidateCount: 1,
     forceBestMove: true,
     clockSeconds: 20,
-    searchTimeoutMs: 900,
-    mateScanTimeoutMs: 350,
+    searchTimeoutMs: 3000,
+    mateScanTimeoutMs: 1100,
     commentaryTimeoutMs: 2600
   }
 };

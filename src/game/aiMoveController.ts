@@ -289,35 +289,7 @@ export class AiMoveController {
         return false;
       }
 
-      if (DIFFICULTY_CONFIG[this.difficulty].forceBestMove) {
-        const selectedMove = analysis.bestMove;
-        const executed = this.tryBestMove(selectedMove, {
-          selectedMove,
-          commentary: DIFFICULTY_CONFIG[this.difficulty].commentaryFallback,
-          style: "best",
-          provider: this.decisionLayer.getProvider(),
-          usedFallback: true
-        });
-
-        this.commentary = executed.commentary;
-        this.lastStyle = executed.style;
-        this.source = executed.source;
-        this.notify();
-
-        void this.decorateCommentaryAfterMove({
-          fen: this.controller.getFen(),
-          moveHistory: this.controller.getMoveHistoryUci(),
-          playerColor: this.playerColor,
-          botColor: this.botColor,
-          difficulty: this.difficulty,
-          personality: this.personality,
-          candidateMoves: analysis.candidates
-        }, selectedMove);
-
-        return true;
-      }
-
-      const decision = await this.decisionLayer.chooseMove({
+      const moveRequest = {
         fen: this.controller.getFen(),
         moveHistory: this.controller.getMoveHistoryUci(),
         playerColor: this.playerColor,
@@ -325,7 +297,8 @@ export class AiMoveController {
         difficulty: this.difficulty,
         personality: this.personality,
         candidateMoves: analysis.candidates
-      });
+      };
+      const decision = this.decisionLayer.pickLocalMove(moveRequest);
 
       await this.pause(adaptivePlan.finalizePauseMs);
       this.thinkingStage = "Finalizing";
@@ -338,6 +311,7 @@ export class AiMoveController {
       this.lastStyle = executed.style;
       this.source = executed.source;
       this.notify();
+      void this.decorateCommentaryAfterMove(moveRequest, decision.selectedMove);
       return true;
     } finally {
       this.thinking = false;

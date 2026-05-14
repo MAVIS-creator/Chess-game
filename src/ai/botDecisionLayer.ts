@@ -203,6 +203,25 @@ const parseCommentaryResponse = (raw: string): Pick<BotCommentaryResult, "commen
 export class BotDecisionLayer {
   private provider = (import.meta.env.VITE_AI_PROVIDER as BotProvider | undefined) ?? DEFAULT_PROVIDER;
 
+  pickLocalMove(request: BotDecisionRequest): BotDecisionResult {
+    const safeCandidateMoves = buildSafeCandidateSet(request.difficulty, request.candidateMoves);
+    const fallback = neutralFallback(request.difficulty, safeCandidateMoves);
+    const pickFrom = safeCandidateMoves.length > 0 ? safeCandidateMoves : request.candidateMoves;
+    const chosen = this.selectCandidateByDifficulty(request.difficulty, pickFrom) ?? pickFrom[0];
+
+    if (!chosen) {
+      return fallback;
+    }
+
+    return {
+      selectedMove: chosen.move,
+      commentary: DIFFICULTY_CONFIG[request.difficulty].commentaryFallback,
+      style: chosen.label,
+      provider: "disabled",
+      usedFallback: true
+    };
+  }
+
   async chooseMove(request: BotDecisionRequest): Promise<BotDecisionResult> {
     if (request.candidateMoves.length === 0) {
       throw new Error("No candidate moves were provided to the decision layer.");
@@ -297,6 +316,53 @@ export class BotDecisionLayer {
     pushIfAvailable("openrouter");
     pushIfAvailable("gemini");
     return available.length > 0 ? available : ["disabled"];
+  }
+
+  private selectCandidateByDifficulty(
+    difficulty: BotDifficulty,
+    candidateMoves: EngineCandidateMove[]
+  ) {
+    if (candidateMoves.length === 0) {
+      return null;
+    }
+
+    if (difficulty === "Impossible" || difficulty === "Nightmare Mode") {
+      return candidateMoves[0];
+    }
+
+    const windowSize =
+      difficulty === "Boss Mode" ? 2 : difficulty === "Hard" ? 2 : difficulty === "Normal" ? 3 : 4;
+    const pool = candidateMoves.slice(0, Math.min(windowSize, candidateMoves.length));
+    const random = Math.random();
+
+    if (difficulty === "Boss Mode") {
+      return random < 0.82 || pool.length === 1 ? pool[0] : pool[1];
+    }
+
+    if (difficulty === "Hard") {
+      return random < 0.78 || pool.length === 1 ? pool[0] : pool[Math.min(1, pool.length - 1)];
+    }
+
+    if (difficulty === "Normal") {
+      if (random < 0.58 || pool.length === 1) {
+        return pool[0];
+      }
+      if (random < 0.84 || pool.length === 2) {
+        return pool[Math.min(1, pool.length - 1)];
+      }
+      return pool[Math.min(2, pool.length - 1)];
+    }
+
+    if (random < 0.36 || pool.length === 1) {
+      return pool[0];
+    }
+    if (random < 0.63 || pool.length === 2) {
+      return pool[Math.min(1, pool.length - 1)];
+    }
+    if (random < 0.84 || pool.length === 3) {
+      return pool[Math.min(2, pool.length - 1)];
+    }
+    return pool[Math.min(3, pool.length - 1)];
   }
 
   async decorateMoveCommentary(

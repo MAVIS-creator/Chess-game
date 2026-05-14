@@ -189,6 +189,48 @@ h1 {
   font: inherit;
 }
 
+.auth-shell {
+  grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 24rem);
+}
+
+.auth-panel {
+  justify-content: center;
+}
+
+.auth-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.auth-switch-button {
+  appearance: none;
+  border: 1px solid rgba(255, 215, 160, 0.16);
+  border-radius: 999px;
+  padding: 0.8rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  background: rgba(21, 17, 14, 0.92);
+  color: rgba(246, 235, 220, 0.82);
+  cursor: pointer;
+}
+
+.auth-switch-button.is-active {
+  background: linear-gradient(135deg, #f0d7b0, #c78d50);
+  color: #1d120b;
+  border-color: transparent;
+}
+
+.auth-error {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(218, 115, 95, 0.28);
+  background: rgba(71, 26, 17, 0.54);
+  color: #ffd5ca;
+  line-height: 1.5;
+}
+
 .start-button,
 .reset-button {
   appearance: none;
@@ -410,7 +452,7 @@ h1 {
 
 .drawer-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
 }
 
@@ -667,6 +709,26 @@ h1 {
 }
 
 @media (max-width: 640px) {
+  body.game-mode {
+    background:
+      radial-gradient(circle at top, rgba(221, 217, 176, 0.22), transparent 18%),
+      linear-gradient(180deg, #c9d0a0 0%, #7f9653 100%);
+  }
+
+  .space-stage {
+    background:
+      radial-gradient(circle at 50% 18%, rgba(255, 250, 220, 0.48), transparent 22%),
+      linear-gradient(180deg, #d7ddb2 0%, #8ea35f 100%);
+  }
+
+  .space-stage::before {
+    background:
+      linear-gradient(135deg, rgba(255, 250, 220, 0.12), transparent 38%),
+      radial-gradient(circle at 16% 16%, rgba(255, 255, 255, 0.18) 0 1px, transparent 1.6px),
+      radial-gradient(circle at 82% 12%, rgba(255, 255, 255, 0.12) 0 1px, transparent 1.6px);
+    opacity: 0.78;
+  }
+
   .menu-shell {
     gap: 1rem;
   }
@@ -739,6 +801,39 @@ h1 {
     text-align: center;
     padding: 0.5rem 0.65rem;
     font-size: 0.8rem;
+  }
+
+  .timer-bar,
+  .info-bar,
+  .info-note,
+  .action-strip,
+  .control-drawer,
+  .promotion-panel,
+  .match-alert,
+  .mini-card {
+    background: rgba(244, 241, 214, 0.9);
+    border-color: rgba(77, 93, 40, 0.18);
+    color: #263117;
+  }
+
+  .timer-side,
+  .hero-label,
+  .mini-card span,
+  .turn-badge p,
+  .match-alert p {
+    color: rgba(38, 49, 23, 0.68);
+  }
+
+  .icon-button {
+    background: rgba(248, 245, 226, 0.95);
+    color: #2d3a1a;
+    border-color: rgba(77, 93, 40, 0.18);
+  }
+
+  .info-pill {
+    background: rgba(248, 245, 226, 0.94);
+    border-color: rgba(77, 93, 40, 0.18);
+    color: #314020;
   }
 
   .bottom-hud {
@@ -825,6 +920,10 @@ h1 {
     pointer-events: auto;
     opacity: 1;
     transform: translateY(0);
+  }
+
+  .drawer-actions {
+    grid-template-columns: 1fr;
   }
 
   .match-alert {

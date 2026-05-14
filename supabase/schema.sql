@@ -7,6 +7,9 @@ create table if not exists public.cedar_ai_profiles (
   draws integer not null default 0 check (draws >= 0),
   strong_games integer not null default 0 check (strong_games >= 0),
   experience integer not null default 0 check (experience >= 0),
+  pressure_index integer not null default 0 check (pressure_index >= 0),
+  endgame_prep integer not null default 0 check (endgame_prep >= 0),
+  opening_prep integer not null default 0 check (opening_prep >= 0),
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
