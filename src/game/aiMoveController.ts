@@ -185,7 +185,11 @@ export class AiMoveController {
   }
 
   shouldHideHints() {
-    return this.difficulty === "Boss Mode" || this.difficulty === "Nightmare Mode";
+    return (
+      this.difficulty === "Boss Mode" ||
+      this.difficulty === "Nightmare Mode" ||
+      this.difficulty === "Impossible"
+    );
   }
 
   reset() {

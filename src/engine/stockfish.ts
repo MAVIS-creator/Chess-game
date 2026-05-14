@@ -92,6 +92,7 @@ export class StockfishEngine {
           const line = event.data;
 
           if (line === "uciok") {
+            this.configureEngineDefaults();
             this.post("isready");
             return;
           }
@@ -169,5 +170,13 @@ export class StockfishEngine {
 
   private post(command: string) {
     this.worker?.postMessage(command);
+  }
+
+  private configureEngineDefaults() {
+    const threads = Math.max(1, Math.min(4, navigator.hardwareConcurrency ?? 2));
+    this.post("setoption name Skill Level value 20");
+    this.post("setoption name UCI_LimitStrength value false");
+    this.post(`setoption name Threads value ${threads}`);
+    this.post("setoption name Hash value 64");
   }
 }
