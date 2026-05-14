@@ -264,6 +264,51 @@ const difficultyDescription = (difficulty: BotDifficulty) => {
   }
 };
 
+const pieceColorLabel = (color: PieceColor) => (color === "white" ? "White" : "Black");
+
+const winnerLabel = (winner: "player" | "ai", playerNameValue: string, color: PieceColor) =>
+  winner === "player" ? `${playerNameValue} (${pieceColorLabel(color)})` : `AI (${pieceColorLabel(color)})`;
+
+const formatMatchHistoryStatus = (
+  statusText: string,
+  playerNameValue: string,
+  playerColorValue: PieceColor,
+  botColorValue: PieceColor,
+  timedOutColor: PieceColor | null
+) => {
+  if (timedOutColor) {
+    const winner = timedOutColor === playerColorValue ? "ai" : "player";
+    const winnerColor = winner === "player" ? playerColorValue : botColorValue;
+    return `${winnerLabel(winner, playerNameValue, winnerColor)} wins on time.`;
+  }
+
+  const normalized = statusText.toLowerCase();
+
+  if (normalized.includes("checkmate")) {
+    const winnerColor: PieceColor = normalized.startsWith("white wins") ? "white" : "black";
+    const winner = winnerColor === playerColorValue ? "player" : "ai";
+    return `${winnerLabel(winner, playerNameValue, winnerColor)} wins by checkmate.`;
+  }
+
+  if (normalized.includes("stalemate")) {
+    return `Draw by stalemate between ${playerNameValue} (${pieceColorLabel(playerColorValue)}) and AI (${pieceColorLabel(botColorValue)}).`;
+  }
+
+  if (normalized.includes("repetition")) {
+    return `Draw by repetition between ${playerNameValue} (${pieceColorLabel(playerColorValue)}) and AI (${pieceColorLabel(botColorValue)}).`;
+  }
+
+  if (normalized.includes("insufficient material")) {
+    return `Draw by insufficient material between ${playerNameValue} (${pieceColorLabel(playerColorValue)}) and AI (${pieceColorLabel(botColorValue)}).`;
+  }
+
+  if (normalized.startsWith("draw")) {
+    return `Draw between ${playerNameValue} (${pieceColorLabel(playerColorValue)}) and AI (${pieceColorLabel(botColorValue)}).`;
+  }
+
+  return statusText;
+};
+
 const renderGameShell = () => {
   app.innerHTML = `
     <main class="play-shell">
@@ -390,26 +435,33 @@ const startGame = async () => {
 
     if (timedOutSide || snapshot.gameOver) {
       const outcomeSignature = `${snapshot.moveCount}:${snapshot.statusText}:${timedOutSide ?? "none"}`;
+      const historyStatusText = formatMatchHistoryStatus(
+        snapshot.statusText,
+        playerName,
+        playerColor,
+        botColor,
+        timedOutSide
+      );
       if (outcomeSignature !== recordedOutcomeSignature) {
         if (timedOutSide) {
           aiController.recordMatchOutcome(timedOutSide === playerColor ? "win" : "loss", outcomeSignature);
           aiController.recordMatchHistory(
             timedOutSide === playerColor ? "win" : "loss",
             snapshot.moveCount,
-            `${timedOutSide === playerColor ? "AI" : playerName} wins on time.`,
+            historyStatusText,
             outcomeSignature
           );
         } else if (snapshot.statusText.toLowerCase().startsWith("draw")) {
           aiController.recordMatchOutcome("draw", outcomeSignature);
-          aiController.recordMatchHistory("draw", snapshot.moveCount, snapshot.statusText, outcomeSignature);
+          aiController.recordMatchHistory("draw", snapshot.moveCount, historyStatusText, outcomeSignature);
         } else if (snapshot.statusText.startsWith("White wins")) {
           const result = botColor === "white" ? "win" : "loss";
           aiController.recordMatchOutcome(result, outcomeSignature);
-          aiController.recordMatchHistory(result, snapshot.moveCount, snapshot.statusText, outcomeSignature);
+          aiController.recordMatchHistory(result, snapshot.moveCount, historyStatusText, outcomeSignature);
         } else if (snapshot.statusText.startsWith("Black wins")) {
           const result = botColor === "black" ? "win" : "loss";
           aiController.recordMatchOutcome(result, outcomeSignature);
-          aiController.recordMatchHistory(result, snapshot.moveCount, snapshot.statusText, outcomeSignature);
+          aiController.recordMatchHistory(result, snapshot.moveCount, historyStatusText, outcomeSignature);
         }
 
         recordedOutcomeSignature = outcomeSignature;
