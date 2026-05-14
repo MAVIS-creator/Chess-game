@@ -17,8 +17,9 @@ import {
 import { ChessSoundboard } from "./audio/chessSounds";
 import { AiMoveController } from "./game/aiMoveController";
 import { ChessController } from "./game/ChessController";
-import type { PieceColor, PieceRole } from "./game/types";
+import type { GamePieceState, MoveSummary, PieceColor, PieceRole, SquareId } from "./game/types";
 import { ChessScene } from "./render/ChessScene";
+import { FlatChessBoard } from "./render/FlatChessBoard";
 import { Hud } from "./ui/Hud";
 
 declare global {
@@ -264,6 +265,20 @@ const difficultyDescription = (difficulty: BotDifficulty) => {
   }
 };
 
+type BoardRenderer = {
+  loadScene: () => Promise<{ pieceCount: number; squareCount: number }>;
+  setSquareSelectHandler: (handler: (square: SquareId) => void) => void;
+  syncBoardState: (pieces: GamePieceState[], animateMove: MoveSummary | null) => void;
+  highlightSquares: (
+    selected: SquareId | null,
+    legalTargets: SquareId[],
+    lastMove: MoveSummary | null,
+    checkedKingSquare?: SquareId | null
+  ) => void;
+  cycleCameraPreset: (lastMove: MoveSummary | null) => void;
+  dispose: () => void;
+};
+
 const pieceColorLabel = (color: PieceColor) => (color === "white" ? "White" : "Black");
 
 const winnerLabel = (winner: "player" | "ai", playerNameValue: string, color: PieceColor) =>
@@ -335,7 +350,8 @@ const startGame = async () => {
   }
 
   const playerColor: PieceColor = selectedDifficulty === "Impossible" ? "black" : "white";
-  const chessScene = new ChessScene(boardStage);
+  const chessScene: BoardRenderer =
+    window.innerWidth <= 640 ? new FlatChessBoard(boardStage) : new ChessScene(boardStage);
   const controller = new ChessController();
   const aiController = new AiMoveController(controller, {
     playerColor,
