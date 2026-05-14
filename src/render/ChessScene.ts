@@ -470,14 +470,14 @@ export class ChessScene {
     index: number,
     baseY: number
   ) {
-    const columns = 4;
-    const spacingX = 0.05;
-    const spacingZ = 0.034;
+    const columns = 3;
+    const spacingX = 0.056;
+    const spacingZ = 0.05;
     const row = Math.floor(index / columns);
     const column = index % columns;
-    const x = 0.155 - row * spacingX;
-    const zStart = color === "white" ? 0.18 : -0.18;
-    const zDirection = color === "white" ? -1 : 1;
+    const x = color === "white" ? 0.31 + row * spacingX : -0.31 - row * spacingX;
+    const zStart = -0.08;
+    const zDirection = 1;
     const z = zStart + column * spacingZ * zDirection;
 
     return new THREE.Vector3(x, baseY, z);

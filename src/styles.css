@@ -723,6 +723,8 @@ h1 {
 
 .match-alert-check {
   border-color: rgba(221, 111, 111, 0.36);
+  top: calc(max(0.85rem, env(safe-area-inset-top)) + 7.2rem);
+  bottom: auto;
 }
 
 .match-alert-end {
@@ -1034,6 +1036,11 @@ h1 {
     padding: 0.8rem 0.85rem;
   }
 
+  .match-alert-check {
+    top: calc(max(0.45rem, env(safe-area-inset-top)) + 6.4rem);
+    bottom: auto;
+  }
+
   .match-alert strong {
     font-size: 0.96rem;
   }
@@ -1135,6 +1142,11 @@ h1 {
   .promotion-panel {
     width: calc(100vw - 0.84rem);
     bottom: calc(max(0.42rem, env(safe-area-inset-bottom)) + 7.8rem);
+  }
+
+  .match-alert-check {
+    top: calc(max(0.42rem, env(safe-area-inset-top)) + 6.1rem);
+    bottom: auto;
   }
 
   .mobile-meta-panel {
