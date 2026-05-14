@@ -20,6 +20,12 @@ export class FlatChessBoard {
   private readonly boardElement: HTMLDivElement;
   private readonly squareElements = new Map<SquareId, HTMLButtonElement>();
   private onSquareSelect: ((square: SquareId) => void) | null = null;
+  private flipped = false;
+  private lastPieces: GamePieceState[] = [];
+  private lastSelected: SquareId | null = null;
+  private lastLegalTargets: SquareId[] = [];
+  private lastMove: MoveSummary | null = null;
+  private lastCheckedKingSquare: SquareId | null = null;
 
   constructor(private readonly mount: HTMLElement) {
     this.mount.innerHTML = "";
@@ -30,23 +36,9 @@ export class FlatChessBoard {
 
     this.boardElement = document.createElement("div");
     this.boardElement.className = "flat-board";
-
-    for (let rankIndex = RANKS.length - 1; rankIndex >= 0; rankIndex -= 1) {
-      for (let fileIndex = 0; fileIndex < FILES.length; fileIndex += 1) {
-        const square = `${FILES[fileIndex]}${RANKS[rankIndex]}` as SquareId;
-        const squareButton = document.createElement("button");
-        squareButton.type = "button";
-        squareButton.className = `flat-square ${((fileIndex + rankIndex) % 2 === 0) ? "is-dark" : "is-light"}`;
-        squareButton.dataset.square = square;
-        squareButton.setAttribute("aria-label", square.toUpperCase());
-        squareButton.addEventListener("click", () => this.onSquareSelect?.(square));
-        this.squareElements.set(square, squareButton);
-        this.boardElement.appendChild(squareButton);
-      }
-    }
-
     shell.appendChild(this.boardElement);
     this.mount.appendChild(shell);
+    this.renderBoard();
   }
 
   async loadScene() {
@@ -61,6 +53,22 @@ export class FlatChessBoard {
   }
 
   cycleCameraPreset() {
+    this.flipped = !this.flipped;
+    this.renderBoard();
+    this.syncBoardState(this.lastPieces);
+    this.highlightSquares(
+      this.lastSelected,
+      this.lastLegalTargets,
+      this.lastMove,
+      this.lastCheckedKingSquare
+    );
+  }
+
+  zoomIn() {
+    // Intentionally empty for the flat board renderer.
+  }
+
+  zoomOut() {
     // Intentionally empty for the flat board renderer.
   }
 
@@ -70,6 +78,10 @@ export class FlatChessBoard {
     lastMove: MoveSummary | null,
     checkedKingSquare: SquareId | null = null
   ) {
+    this.lastSelected = selected;
+    this.lastLegalTargets = [...legalTargets];
+    this.lastMove = lastMove;
+    this.lastCheckedKingSquare = checkedKingSquare;
     const legalSet = new Set(legalTargets);
     const lastMoveSquares = new Set<SquareId>(lastMove ? [lastMove.from, lastMove.to] : []);
 
@@ -82,6 +94,7 @@ export class FlatChessBoard {
   }
 
   syncBoardState(pieces: GamePieceState[]) {
+    this.lastPieces = pieces.map((piece) => ({ ...piece }));
     for (const element of this.squareElements.values()) {
       element.textContent = "";
       element.classList.remove("is-white-piece", "is-black-piece");
@@ -106,5 +119,29 @@ export class FlatChessBoard {
   dispose() {
     this.mount.innerHTML = "";
     this.mount.classList.remove("flat-board-host");
+  }
+
+  private renderBoard() {
+    this.boardElement.innerHTML = "";
+    this.squareElements.clear();
+
+    const ranks = this.flipped ? [...RANKS] : [...RANKS].reverse();
+    const files = this.flipped ? [...FILES].reverse() : [...FILES];
+
+    for (const rank of ranks) {
+      for (const file of files) {
+        const fileIndex = FILES.indexOf(file);
+        const rankIndex = RANKS.indexOf(rank);
+        const square = `${file}${rank}` as SquareId;
+        const squareButton = document.createElement("button");
+        squareButton.type = "button";
+        squareButton.className = `flat-square ${((fileIndex + rankIndex) % 2 === 0) ? "is-dark" : "is-light"}`;
+        squareButton.dataset.square = square;
+        squareButton.setAttribute("aria-label", square.toUpperCase());
+        squareButton.addEventListener("click", () => this.onSquareSelect?.(square));
+        this.squareElements.set(square, squareButton);
+        this.boardElement.appendChild(squareButton);
+      }
+    }
   }
 }

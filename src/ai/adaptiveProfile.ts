@@ -1,3 +1,4 @@
+import { supabase } from "../auth/supabase";
 import type { BotDifficulty } from "./botPersonality";
 
 const STORAGE_KEY = "cedar-chess-ai-adaptive-profile";
@@ -25,6 +26,7 @@ export interface AdaptiveSearchPlan {
 }
 
 export interface MatchHistoryEntry {
+  playerId?: string | null;
   playerName: string;
   difficulty: BotDifficulty;
   result: "win" | "loss" | "draw";
@@ -211,23 +213,23 @@ export const persistAdaptiveProfile = async (profile: AdaptiveProfile) => {
 };
 
 export const persistMatchHistory = async (entry: MatchHistoryEntry) => {
-  if (!hasSupabaseConfig()) {
+  if (!supabase) {
     return;
   }
 
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/cedar_match_history`, {
-      method: "POST",
-      headers: supabaseHeaders(),
-      body: JSON.stringify({
+    const { error } = await supabase.from("cedar_match_history").insert({
+      player_id: entry.playerId ?? null,
         player_name: entry.playerName,
         difficulty: entry.difficulty,
         result: entry.result,
         move_count: entry.moveCount,
         status_text: entry.statusText,
         created_at: new Date().toISOString()
-      })
-    });
+      });
+    if (error) {
+      console.error("Failed to write match history", error);
+    }
   } catch {
     // History sync is best-effort.
   }

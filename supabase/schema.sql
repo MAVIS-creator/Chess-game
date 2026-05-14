@@ -15,6 +15,7 @@ create table if not exists public.cedar_ai_profiles (
 
 create table if not exists public.cedar_match_history (
   id bigint generated always as identity primary key,
+  player_id uuid references auth.users(id) on delete set null,
   player_name text not null default 'Guest',
   difficulty text not null,
   result text not null check (result in ('win', 'loss', 'draw')),

@@ -276,6 +276,8 @@ type BoardRenderer = {
     checkedKingSquare?: SquareId | null
   ) => void;
   cycleCameraPreset: (lastMove: MoveSummary | null) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
   dispose: () => void;
 };
 
@@ -371,8 +373,9 @@ const startGame = async () => {
   let recordedOutcomeSignature = "";
   const botColor: PieceColor = playerColor === "white" ? "black" : "white";
   let sessionActive = true;
+  const compactLayout = window.innerWidth <= 640;
 
-  aiController.setPlayerName(playerName);
+  aiController.setPlayerIdentity(activePlayer.id, playerName);
   aiController.setDifficulty(selectedDifficulty);
   aiController.setPersonality(getPersonalityForDifficulty(selectedDifficulty).id);
   aiController.setTurnGuard(() => timedOutSide === null);
@@ -491,7 +494,7 @@ const startGame = async () => {
       snapshot.lastMove,
       snapshot.checkedKingSquare
     );
-    hud.renderStatus(snapshot, aiController.getState());
+    hud.renderStatus(snapshot, aiController.getState(), compactLayout);
   };
 
   aiController.setStateListener(sync);
@@ -534,6 +537,14 @@ const startGame = async () => {
 
   hud.bindCycleCamera(() => {
     chessScene.cycleCameraPreset(controller.getSnapshot().lastMove);
+  });
+
+  hud.bindZoomIn(() => {
+    chessScene.zoomIn();
+  });
+
+  hud.bindZoomOut(() => {
+    chessScene.zoomOut();
   });
 
   hud.bindBackToMenu(() => {

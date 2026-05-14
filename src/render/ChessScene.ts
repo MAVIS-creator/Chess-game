@@ -102,6 +102,22 @@ export class ChessScene {
     this.applyCameraPreset(this.activeCameraPreset, lastMove);
   }
 
+  zoomIn() {
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const nextLength = Math.max(this.controls.minDistance, offset.length() - 0.08);
+    offset.setLength(nextLength);
+    this.camera.position.copy(this.controls.target.clone().add(offset));
+    this.controls.update();
+  }
+
+  zoomOut() {
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const nextLength = Math.min(this.controls.maxDistance, offset.length() + 0.08);
+    offset.setLength(nextLength);
+    this.camera.position.copy(this.controls.target.clone().add(offset));
+    this.controls.update();
+  }
+
   highlightSquares(
     selected: SquareId | null,
     legalTargets: SquareId[],

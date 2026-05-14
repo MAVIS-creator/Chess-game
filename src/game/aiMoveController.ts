@@ -59,6 +59,7 @@ export class AiMoveController {
   private lastStyle = "opening";
   private source: "stockfish" | "llm" = "stockfish";
   private playerName = "Guest";
+  private playerId: string | null = null;
   private playerTimeMs = 0;
   private aiTimeMs = 0;
   private timedOutSide: PieceColor | null = null;
@@ -103,6 +104,12 @@ export class AiMoveController {
   }
 
   setPlayerName(playerName: string) {
+    this.playerName = playerName.trim() || "Guest";
+    this.notify();
+  }
+
+  setPlayerIdentity(playerId: string | null, playerName: string) {
+    this.playerId = playerId;
     this.playerName = playerName.trim() || "Guest";
     this.notify();
   }
@@ -207,6 +214,7 @@ export class AiMoveController {
     }
 
     void persistMatchHistory({
+      playerId: this.playerId,
       playerName: this.playerName,
       difficulty: this.difficulty,
       result,

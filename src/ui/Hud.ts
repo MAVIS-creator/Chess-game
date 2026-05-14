@@ -30,6 +30,8 @@ export class Hud {
   private onReset: (() => void) | null = null;
   private onPromote: ((role: PieceRole) => void) | null = null;
   private onCycleCamera: (() => void) | null = null;
+  private onZoomIn: (() => void) | null = null;
+  private onZoomOut: (() => void) | null = null;
   private onBackToMenu: (() => void) | null = null;
   private onLogout: (() => void) | null = null;
   private onExit: (() => void) | null = null;
@@ -51,6 +53,14 @@ export class Hud {
     this.onCycleCamera = handler;
   }
 
+  bindZoomIn(handler: () => void) {
+    this.onZoomIn = handler;
+  }
+
+  bindZoomOut(handler: () => void) {
+    this.onZoomOut = handler;
+  }
+
   bindBackToMenu(handler: () => void) {
     this.onBackToMenu = handler;
   }
@@ -63,7 +73,7 @@ export class Hud {
     this.onExit = handler;
   }
 
-  renderStatus(snapshot: GameSnapshot, botState: BotHudState) {
+  renderStatus(snapshot: GameSnapshot, botState: BotHudState, compactLayout = false) {
     const humanInCheck = snapshot.inCheck && snapshot.currentTurn === botState.playerColor;
     const aiInCheck = snapshot.inCheck && snapshot.currentTurn === botState.botColor;
     const timeoutWinner =
@@ -146,6 +156,51 @@ export class Hud {
       `
       : "";
 
+    const commentaryMarkup = `
+      <div class="mini-card commentary-card">
+        <span>Commentary</span>
+        <strong>${botState.commentary}</strong>
+      </div>
+    `;
+
+    const lastMoveMarkup = `
+      <div class="mini-card last-move-card">
+        <span>Last move</span>
+        <strong>${snapshot.lastMove ? `${snapshot.lastMove.from.toUpperCase()} → ${snapshot.lastMove.to.toUpperCase()}` : "Opening position"}</strong>
+      </div>
+    `;
+
+    const capturedMarkup = `
+      <div class="mini-card captured-card">
+        <span>Captured</span>
+        <strong>White ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length} · Black ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length}</strong>
+      </div>
+    `;
+
+    const drawerActionsMarkup = `
+      <div class="drawer-actions">
+        <button class="drawer-button" type="button" data-action="back-to-menu">Back to menu</button>
+        <button class="drawer-button" type="button" data-action="logout">Log out</button>
+        <button class="drawer-button danger" type="button" data-action="exit">Exit</button>
+      </div>
+    `;
+
+    const desktopControlsMarkup = `
+      <div class="action-strip desktop-actions">
+        <button class="icon-button" type="button" data-action="zoom-out" aria-label="Zoom out">−</button>
+        <button class="pill-button secondary" type="button" data-action="reset">Reset</button>
+        <button class="icon-button" type="button" data-action="zoom-in" aria-label="Zoom in">+</button>
+      </div>
+    `;
+
+    const mobileControlsMarkup = `
+      <div class="action-strip compact-actions">
+        <button class="icon-button" type="button" data-action="toggle-menu" aria-expanded="${this.menuOpen ? "true" : "false"}">☰</button>
+        <button class="pill-button secondary" type="button" data-action="reset">Reset</button>
+        <button class="icon-button" type="button" data-action="cycle-camera" aria-label="Switch camera view">📷</button>
+      </div>
+    `;
+
     this.root.innerHTML = `
       <div class="hud-frame">
         <div class="timer-bar timer-bar-top ${snapshot.currentTurn === botState.botColor && !timeoutWinner ? "is-active" : ""}">
@@ -159,25 +214,9 @@ export class Hud {
           <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
         </div>
 
-        <div class="control-drawer ${this.menuOpen ? "is-open" : ""}">
-          <div class="mini-card">
-            <span>Commentary</span>
-            <strong>${botState.commentary}</strong>
-          </div>
-          <div class="mini-card">
-            <span>Last move</span>
-            <strong>${snapshot.lastMove ? `${snapshot.lastMove.from.toUpperCase()} → ${snapshot.lastMove.to.toUpperCase()}` : "Opening position"}</strong>
-          </div>
-          <div class="mini-card">
-            <span>Captured</span>
-            <strong>White ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "white").length} · Black ${snapshot.pieces.filter((piece) => piece.captured && piece.color === "black").length}</strong>
-          </div>
-          <div class="drawer-actions">
-            <button class="drawer-button" type="button" data-action="back-to-menu">Back to menu</button>
-            <button class="drawer-button" type="button" data-action="logout">Log out</button>
-            <button class="drawer-button danger" type="button" data-action="exit">Exit</button>
-          </div>
-        </div>
+        ${compactLayout
+          ? `<div class="control-drawer ${this.menuOpen ? "is-open" : ""}">${commentaryMarkup}${lastMoveMarkup}${capturedMarkup}${drawerActionsMarkup}</div>`
+          : `<div class="desktop-card-row">${commentaryMarkup}${lastMoveMarkup}${capturedMarkup}</div><div class="desktop-drawer-actions">${drawerActionsMarkup}</div>`}
 
         <div class="info-note">
           <strong>${infoText}</strong>
@@ -188,11 +227,7 @@ export class Hud {
           <strong>${formatClock(botState.playerTimeMs)}</strong>
         </div>
 
-        <div class="action-strip">
-          <button class="icon-button" type="button" data-action="toggle-menu" aria-expanded="${this.menuOpen ? "true" : "false"}">☰</button>
-          <button class="pill-button secondary" type="button" data-action="reset">Reset</button>
-          <button class="icon-button" type="button" data-action="cycle-camera" aria-label="Switch camera view">📷</button>
-        </div>
+        ${compactLayout ? mobileControlsMarkup : desktopControlsMarkup}
       </div>
       ${overlayMarkup}
       ${promotionMarkup}
@@ -212,6 +247,16 @@ export class Hud {
 
     if (target.dataset.action === "cycle-camera") {
       this.onCycleCamera?.();
+      return;
+    }
+
+    if (target.dataset.action === "zoom-in") {
+      this.onZoomIn?.();
+      return;
+    }
+
+    if (target.dataset.action === "zoom-out") {
+      this.onZoomOut?.();
       return;
     }
 
