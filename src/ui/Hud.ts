@@ -127,18 +127,18 @@ export class Hud {
         `
         : humanInCheck
           ? `
-            <div class="match-alert match-alert-check">
+            <div class="match-alert match-alert-check ${compactLayout ? "match-alert-check-compact" : ""}">
               <span class="hero-label">King In Trouble</span>
-              <strong>${botState.playerName}, your king is in check.</strong>
-              <p>Only legal escape squares will light up.</p>
+              <strong>${compactLayout ? "Your king is in check." : `${botState.playerName}, your king is in check.`}</strong>
+              <p>${compactLayout ? "Escape moves only." : "Only legal escape squares will light up."}</p>
             </div>
           `
           : aiInCheck
             ? `
-              <div class="match-alert match-alert-check ai">
+              <div class="match-alert match-alert-check ai ${compactLayout ? "match-alert-check-compact" : ""}">
                 <span class="hero-label">Pressure Applied</span>
-                <strong>The AI king is in check.</strong>
-                <p>The next move must answer the threat.</p>
+                <strong>${compactLayout ? "AI king in check." : "The AI king is in check."}</strong>
+                <p>${compactLayout ? "It must answer now." : "The next move must answer the threat."}</p>
               </div>
             `
             : "";
