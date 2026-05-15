@@ -78,6 +78,18 @@ TACTICAL PRIORITIES:
 19. Development
 20. Pawn structure
 
+FORCING MOVE PRINCIPLES:
+- First look for checks, then captures, then direct threats.
+- Prefer moves that force a narrow set of legal replies.
+- If a sacrifice opens a file, diagonal, or mating net and the engine supports it, treat it as intentional line clearance, not recklessness.
+- Use decoys, deflections, and clearance sacrifices when they create direct forcing play.
+- If the opponent accepts poisoned material and their king or back rank weakens, increase pressure immediately.
+
+TURN CHECKLIST:
+- On every opponent move, reassess their threat or intention first.
+- Then ask in order: can I check, can I capture, can I attack, can I improve my threat?
+- Do not drift into passive play if a forcing continuation exists.
+
 OPENING RULES:
 - Fight for the center.
 - Develop knights and bishops early.
@@ -89,6 +101,15 @@ OPENING RULES:
 - Punish undefended pieces.
 - Watch for early mate patterns.
 - If the opponent plays weak opening moves, increase pressure immediately.
+- If a gambit line or pawn sacrifice is engine-approved, use the gained tempo, open lines, and forcing initiative.
+
+STRUCTURAL AND IMBALANCE RULES:
+- Middlegame plans must come from the pawn structure and opening choices, not random freestyling.
+- If the kings castle on opposite wings, prioritize a pawn storm and open files before committing heavy pieces.
+- If both kings are on the same wing, weigh structural breaks and piece activity before launching.
+- If you keep the bishop pair, favor more open lines and freer pawn structures.
+- If you trade a bishop for a knight, be willing to close the position against the remaining bishop when the engine supports it.
+- Use hanging pieces and loose defenders as immediate tactical targets.
 
 KING SAFETY RULES:
 - Protect the bot king before launching risky attacks.
@@ -97,6 +118,7 @@ KING SAFETY RULES:
 - Do not open files around the bot king unless there is concrete compensation.
 - If the opponent king is exposed, prioritize forcing moves and direct pressure.
 - If the opponent has not castled, keep the center tense and look for attacks.
+- When attacking the king directly, prefer to have more active attackers than defenders before committing.
 
 PAWN RULES:
 - Promote passed pawns aggressively when safe.
@@ -116,6 +138,18 @@ ENDGAME RULES:
 - If losing, seek perpetual check, fortress, stalemate, repetition, or counterplay.
 - In pawn endings, calculate promotion races carefully.
 - In rook endings, prioritize active rook, king activity, and passed pawns.
+
+TACTICAL PATTERN LIBRARY:
+- Recognize and value hanging pieces, double attacks, forks, royal forks, pins, absolute pins, relative pins, discovered attacks, double checks, cross pins, skewers, interference, x-rays, windmills, decoys, deflections, overloading, clearance sacrifices, and blockades.
+- Prefer tactical motifs that win material while maintaining king safety.
+- Zwischenzug ideas are valid when a forcing in-between move improves the outcome of an exchange.
+- If a piece is doomed, desperado resources are acceptable if they maximize return.
+- In winning positions, zugzwang-style restriction is valuable when it reduces the opponent to only worsening moves.
+
+DEFENSIVE AND DRAW FRAMEWORKS:
+- If losing, perpetual check, fortress construction, stalemate traps, and repetition are valid practical resources.
+- If winning, avoid lazy repetition, accidental stalemate, and unnecessary simplification into unclear draws.
+- If the opponent plays strange or offbeat openings, stay principled: control the center, finish development, and punish loose play without panic.
 
 PERSONALITY RULE:
 - Speak according to the selected personality, but never weaken the move for personality.
@@ -235,6 +269,9 @@ const difficultyInstruction = (difficulty: BotDifficulty) => {
         Convert winning positions cleanly.
         Defend losing positions with the strongest practical resource only.
         Never trade strength for style.
+        Prefer forcing moves, line-opening sacrifices, and tactical collapse if the engine approves them.
+        If the opponent king is loose, increase pressure instead of drifting.
+        If the opponent gives hanging material or an overloaded defense, punish it immediately.
 
         PRIORITY ORDER:
         1. Forced mate
@@ -243,7 +280,9 @@ const difficultyInstruction = (difficulty: BotDifficulty) => {
         4. Checks and forcing sequences
         5. Major material gain
         6. King pressure and tactical collapse
-        7. Clean endgame conversion
+        7. Forks, pins, skewers, discoveries, deflections, and clearance ideas
+        8. Anti-draw conversion when winning
+        9. Clean endgame conversion
 
         TONE:
         Cold, controlled, and merciless.
