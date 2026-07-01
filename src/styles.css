@@ -1158,6 +1158,7 @@ h1 {
     max-width: calc(100vw - 1.6rem);
     min-height: 0;
     height: auto;
+    bottom: auto;
     padding: 0.38rem 0.6rem;
     border-radius: 999px;
     background: rgba(244, 241, 214, 0.96);
@@ -1321,6 +1322,11 @@ h1 {
     bottom: calc(max(0.45rem, env(safe-area-inset-bottom)) + 12.8rem);
   }
 
+  .match-alert-check,
+  .match-alert-check-compact {
+    bottom: auto;
+  }
+
   .mini-card {
     padding: 0.58rem 0.62rem;
   }
@@ -1375,6 +1381,7 @@ h1 {
 
   .match-alert-check {
     top: calc(max(0.42rem, env(safe-area-inset-top)) + 3.45rem);
+    bottom: auto;
   }
 }
 
@@ -1426,6 +1433,7 @@ h1 {
 
   .match-alert-check-compact {
     width: min(17.5rem, calc(100vw - 1.1rem));
+    bottom: auto;
     padding: 0.34rem 0.52rem;
   }
 
