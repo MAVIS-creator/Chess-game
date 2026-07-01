@@ -1155,9 +1155,15 @@ h1 {
 
   .match-alert-check-compact {
     width: min(19rem, calc(100vw - 1.6rem));
+    max-width: calc(100vw - 1.6rem);
+    min-height: 0;
+    height: auto;
     padding: 0.38rem 0.6rem;
     border-radius: 999px;
+    background: rgba(244, 241, 214, 0.96);
+    backdrop-filter: none;
     text-align: center;
+    overflow: hidden;
     box-shadow: 0 0.65rem 1.4rem rgba(0, 0, 0, 0.16);
   }
 
