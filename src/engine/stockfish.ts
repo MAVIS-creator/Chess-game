@@ -1,3 +1,4 @@
+import { getApiAuthHeaders } from "../auth/apiSession";
 import type { RawEngineLine } from "./candidateMoves";
 import { normalizeCandidateMoves, type EngineCandidateMove } from "./candidateMoves";
 
@@ -13,20 +14,44 @@ export interface EngineAnalysisRequest {
 export interface EngineAnalysisResult {
   bestMove: string;
   candidates: EngineCandidateMove[];
+  source?: "gcp-stockfish-19" | "local-stockfish-19";
 }
 
-const STOCKFISH_SCRIPT_URL = "/stockfish/stockfish-18-lite-single.js";
-const STOCKFISH_WASM_URL = "/stockfish/stockfish-18-lite-single.wasm";
+interface RemoteAnalysisLine {
+  move_uci?: string | null;
+  depth?: number | null;
+  score?: {
+    centipawns?: number | null;
+    mate_in?: number | null;
+  } | null;
+  pv?: {
+    uci?: string[];
+  } | null;
+}
 
-const buildWorkerUrl = () => `${STOCKFISH_SCRIPT_URL}#${encodeURIComponent(STOCKFISH_WASM_URL)}`;
+interface RemoteAnalysisResponse {
+  best_move_uci?: string | null;
+  lines?: RemoteAnalysisLine[];
+}
 
-export class StockfishEngine {
+const STOCKFISH_SCRIPT_URL = "/stockfish/stockfish-19-lite-single.js";
+
+const clampInt = (value: number | undefined, min: number, max: number, fallback: number) => {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(min, Math.min(max, Math.round(value ?? fallback)));
+};
+
+class LocalStockfish19Engine {
   private worker: Worker | null = null;
   private isReady = false;
   private readyPromise: Promise<void> | null = null;
   private searchRequestId = 0;
+  private timeoutId: number | null = null;
   private searchPromise:
     | {
+        requestId: number;
         resolve: (value: EngineAnalysisResult) => void;
         reject: (reason?: unknown) => void;
         lines: Map<number, RawEngineLine>;
@@ -37,38 +62,56 @@ export class StockfishEngine {
     await this.ensureReady();
 
     if (!this.worker) {
-      throw new Error("Stockfish worker failed to initialize.");
+      throw new Error("Local Stockfish 19 worker failed to initialize.");
+    }
+
+    if (this.searchPromise) {
+      const previous = this.searchPromise;
+      this.post("stop");
+      this.clearSearchTimeout();
+      this.searchPromise = null;
+      previous.reject(new Error("Local engine search was superseded by a newer request."));
     }
 
     return new Promise<EngineAnalysisResult>((resolve, reject) => {
       const requestId = ++this.searchRequestId;
       this.searchPromise = {
+        requestId,
         resolve,
         reject,
         lines: new Map()
       };
 
-      this.post("ucinewgame");
       this.post("position fen " + request.fen);
-      this.post(`setoption name MultiPV value ${request.multiPv}`);
-      if (request.timeoutMs && request.timeoutMs > 0) {
-        window.setTimeout(() => {
-          if (this.searchPromise && requestId === this.searchRequestId) {
-            this.post("stop");
-          }
-        }, request.timeoutMs);
+      this.post(`setoption name MultiPV value ${clampInt(request.multiPv, 1, 5, 1)}`);
+
+      const timeoutMs = clampInt(request.timeoutMs, 300, 12_000, 4500);
+      this.timeoutId = window.setTimeout(() => {
+        if (this.searchPromise?.requestId === requestId) {
+          this.post("stop");
+        }
+      }, timeoutMs);
+
+      if (request.mate && request.mate > 0) {
+        this.post(`go mate ${clampInt(request.mate, 1, 12, 3)}`);
+        return;
       }
-      this.post(
-        request.mate && request.mate > 0
-          ? `go mate ${request.mate}`
-          : request.moveTimeMs && request.moveTimeMs > 0
-            ? `go movetime ${request.moveTimeMs}`
-            : `go depth ${request.depth}`
-      );
+
+      if (request.moveTimeMs && request.moveTimeMs > 0) {
+        this.post(`go movetime ${clampInt(request.moveTimeMs, 50, 8000, 1000)}`);
+        return;
+      }
+
+      this.post(`go depth ${clampInt(request.depth, 1, 40, 16)}`);
     });
   }
 
   dispose() {
+    this.clearSearchTimeout();
+    if (this.searchPromise) {
+      this.searchPromise.reject(new Error("Local engine disposed."));
+      this.searchPromise = null;
+    }
     this.post("quit");
     this.worker?.terminate();
     this.worker = null;
@@ -82,11 +125,11 @@ export class StockfishEngine {
     }
 
     if (!this.readyPromise) {
-      this.worker = new Worker(buildWorkerUrl(), { type: "classic", name: "stockfish-lite" });
+      this.worker = new Worker(STOCKFISH_SCRIPT_URL, { type: "classic", name: "stockfish-19-lite" });
       this.readyPromise = new Promise<void>((resolve, reject) => {
         const timeout = window.setTimeout(() => {
-          reject(new Error("Stockfish did not become ready in time."));
-        }, 15000);
+          reject(new Error("Local Stockfish 19 did not become ready in time."));
+        }, 15_000);
 
         this.worker?.addEventListener("message", (event: MessageEvent<string>) => {
           const line = event.data;
@@ -109,7 +152,7 @@ export class StockfishEngine {
 
         this.worker?.addEventListener("error", (event) => {
           window.clearTimeout(timeout);
-          reject(event.error ?? new Error("Stockfish worker crashed."));
+          reject(event.error ?? new Error("Local Stockfish 19 worker crashed."));
         });
 
         this.post("uci");
@@ -120,31 +163,42 @@ export class StockfishEngine {
   }
 
   private handleEngineLine(line: string) {
-    if (!this.searchPromise) {
+    const search = this.searchPromise;
+    if (!search) {
       return;
     }
 
     if (line.startsWith("info ")) {
       const parsed = this.parseInfoLine(line);
       if (parsed) {
-        this.searchPromise.lines.set(parsed.multipv, parsed);
+        search.lines.set(parsed.multipv, parsed);
       }
       return;
     }
 
-    if (line.startsWith("bestmove ")) {
-      const bestMove = line.split(/\s+/)[1];
-      const candidates = normalizeCandidateMoves([...this.searchPromise.lines.values()]);
-      const result: EngineAnalysisResult = {
-        bestMove,
-        candidates:
-          candidates.length > 0
-            ? candidates
-            : [{ move: bestMove, score: 0, depth: 0, label: "best", pv: [bestMove], mateIn: null }]
-      };
-      this.searchPromise.resolve(result);
-      this.searchPromise = null;
+    if (!line.startsWith("bestmove ")) {
+      return;
     }
+
+    const bestMove = line.split(/\s+/)[1];
+    this.clearSearchTimeout();
+
+    if (!bestMove || bestMove === "(none)") {
+      this.searchPromise = null;
+      search.reject(new Error("Local Stockfish 19 returned no move."));
+      return;
+    }
+
+    const candidates = normalizeCandidateMoves([...search.lines.values()]);
+    search.resolve({
+      bestMove,
+      candidates:
+        candidates.length > 0
+          ? candidates
+          : [{ move: bestMove, score: 0, depth: 0, label: "best", pv: [bestMove], mateIn: null }],
+      source: "local-stockfish-19"
+    });
+    this.searchPromise = null;
   }
 
   private parseInfoLine(line: string): RawEngineLine | null {
@@ -172,11 +226,95 @@ export class StockfishEngine {
     this.worker?.postMessage(command);
   }
 
+  private clearSearchTimeout() {
+    if (this.timeoutId !== null) {
+      window.clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+  }
+
   private configureEngineDefaults() {
-    const threads = Math.max(1, Math.min(4, navigator.hardwareConcurrency ?? 2));
     this.post("setoption name Skill Level value 20");
     this.post("setoption name UCI_LimitStrength value false");
-    this.post(`setoption name Threads value ${threads}`);
     this.post("setoption name Hash value 64");
+  }
+}
+
+export class StockfishEngine {
+  private readonly local = new LocalStockfish19Engine();
+
+  async analyzePosition(request: EngineAnalysisRequest): Promise<EngineAnalysisResult> {
+    try {
+      return await this.analyzeRemote(request);
+    } catch {
+      return this.local.analyzePosition(request);
+    }
+  }
+
+  dispose() {
+    this.local.dispose();
+  }
+
+  private async analyzeRemote(request: EngineAnalysisRequest): Promise<EngineAnalysisResult> {
+    const headers = await getApiAuthHeaders();
+    if (!headers.Authorization) {
+      throw new Error("No authenticated session for remote engine.");
+    }
+
+    const controller = new AbortController();
+    const timeoutMs = clampInt(request.timeoutMs, 700, 8000, Math.max(1800, (request.moveTimeMs ?? 1000) + 1300));
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch("/api/engine", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          fen: request.fen,
+          depth: clampInt(request.depth, 1, 40, 16),
+          multiPv: clampInt(request.multiPv, 1, 5, 1),
+          timeMs: clampInt(request.moveTimeMs, 50, 6000, request.mate ? 900 : 1200),
+          timeoutMs
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new Error("Remote engine rejected the request.");
+      }
+
+      const data = (await response.json()) as RemoteAnalysisResponse;
+      const rawLines: RawEngineLine[] = (data.lines ?? [])
+        .map((line, index) => ({
+          depth: line.depth ?? request.depth,
+          multipv: index + 1,
+          scoreCp: line.score?.centipawns ?? null,
+          mateIn: line.score?.mate_in ?? null,
+          pv: line.pv?.uci?.length
+            ? line.pv.uci
+            : line.move_uci
+              ? [line.move_uci]
+              : []
+        }))
+        .filter((line) => line.pv.length > 0);
+
+      const candidates = normalizeCandidateMoves(rawLines);
+      const bestMove = data.best_move_uci ?? candidates[0]?.move;
+
+      if (!bestMove) {
+        throw new Error("Remote engine returned no legal move candidate.");
+      }
+
+      return {
+        bestMove,
+        candidates:
+          candidates.length > 0
+            ? candidates
+            : [{ move: bestMove, score: 0, depth: request.depth, label: "best", pv: [bestMove], mateIn: null }],
+        source: "gcp-stockfish-19"
+      };
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 }

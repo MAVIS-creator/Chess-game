@@ -1,11 +1,6 @@
 import { supabase } from "../auth/supabase";
 import type { BotDifficulty } from "./botPersonality";
 
-const STORAGE_KEY = "cedar-chess-ai-adaptive-profile";
-const PROFILE_KEY = "global";
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
 export interface AdaptiveProfile {
   gamesPlayed: number;
   wins: number;
@@ -55,46 +50,22 @@ const difficultyWeight: Record<BotDifficulty, number> = {
   Impossible: 5
 };
 
-const hasSupabaseConfig = () => Boolean(SUPABASE_URL && SUPABASE_KEY);
+const getAuthenticatedPlayerId = async () => {
+  if (!supabase) {
+    return null;
+  }
 
-const supabaseHeaders = () => ({
-  apikey: SUPABASE_KEY ?? "",
-  Authorization: `Bearer ${SUPABASE_KEY ?? ""}`,
-  "Content-Type": "application/json",
-  Prefer: "return=minimal"
-});
-
-export const loadAdaptiveProfile = (): AdaptiveProfile => {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return { ...DEFAULT_PROFILE };
-    }
-
-    const parsed = JSON.parse(raw) as Partial<AdaptiveProfile>;
-    return {
-      gamesPlayed: parsed.gamesPlayed ?? 0,
-      wins: parsed.wins ?? 0,
-      losses: parsed.losses ?? 0,
-      draws: parsed.draws ?? 0,
-      strongGames: parsed.strongGames ?? 0,
-      experience: parsed.experience ?? 0,
-      pressureIndex: parsed.pressureIndex ?? 0,
-      endgamePrep: parsed.endgamePrep ?? 0,
-      openingPrep: parsed.openingPrep ?? 0
-    };
+    const {
+      data: { session }
+    } = await supabase.auth.getSession();
+    return session?.user.id ?? null;
   } catch {
-    return { ...DEFAULT_PROFILE };
+    return null;
   }
 };
 
-const saveAdaptiveProfile = (profile: AdaptiveProfile) => {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-  } catch {
-    // Ignore storage failures and keep runtime behavior intact.
-  }
-};
+export const loadAdaptiveProfile = (): AdaptiveProfile => ({ ...DEFAULT_PROFILE });
 
 export const recordAdaptiveResult = (
   profile: AdaptiveProfile,
@@ -105,7 +76,13 @@ export const recordAdaptiveResult = (
     ...profile,
     gamesPlayed: profile.gamesPlayed + 1,
     strongGames:
-      profile.strongGames + (difficulty === "Hard" || difficulty === "Boss Mode" || difficulty === "Nightmare Mode" || difficulty === "Impossible" ? 1 : 0),
+      profile.strongGames +
+      (difficulty === "Hard" ||
+      difficulty === "Boss Mode" ||
+      difficulty === "Nightmare Mode" ||
+      difficulty === "Impossible"
+        ? 1
+        : 0),
     experience: Math.min(80, profile.experience + difficultyWeight[difficulty]),
     pressureIndex: Math.min(40, profile.pressureIndex + (result === "loss" ? 2 : 1)),
     endgamePrep: Math.min(30, profile.endgamePrep + (result === "draw" ? 2 : 1)),
@@ -120,81 +97,60 @@ export const recordAdaptiveResult = (
     next.draws += 1;
   }
 
-  saveAdaptiveProfile(next);
   return next;
 };
 
 export const hydrateAdaptiveProfile = async () => {
-  const localProfile = loadAdaptiveProfile();
-  if (!hasSupabaseConfig()) {
-    return localProfile;
+  if (!supabase) {
+    return { ...DEFAULT_PROFILE };
+  }
+
+  const playerId = await getAuthenticatedPlayerId();
+  if (!playerId) {
+    return { ...DEFAULT_PROFILE };
   }
 
   try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/cedar_ai_profiles?profile_key=eq.${PROFILE_KEY}&select=games_played,wins,losses,draws,strong_games,experience,pressure_index,endgame_prep,opening_prep&limit=1`,
-      {
-        headers: {
-          apikey: SUPABASE_KEY ?? "",
-          Authorization: `Bearer ${SUPABASE_KEY ?? ""}`
-        }
-      }
-    );
+    const { data, error } = await supabase
+      .from("cedar_ai_profiles")
+      .select("games_played,wins,losses,draws,strong_games,experience,pressure_index,endgame_prep,opening_prep")
+      .eq("profile_key", playerId)
+      .maybeSingle();
 
-    if (!response.ok) {
-      return localProfile;
+    if (error || !data) {
+      return { ...DEFAULT_PROFILE };
     }
 
-    const rows = (await response.json()) as Array<{
-      games_played: number;
-      wins: number;
-      losses: number;
-      draws: number;
-      strong_games: number;
-      experience: number;
-      pressure_index: number;
-      endgame_prep: number;
-      opening_prep: number;
-    }>;
-
-    const remote = rows[0];
-    if (!remote) {
-      return localProfile;
-    }
-
-    const merged: AdaptiveProfile = {
-      gamesPlayed: Math.max(localProfile.gamesPlayed, remote.games_played ?? 0),
-      wins: Math.max(localProfile.wins, remote.wins ?? 0),
-      losses: Math.max(localProfile.losses, remote.losses ?? 0),
-      draws: Math.max(localProfile.draws, remote.draws ?? 0),
-      strongGames: Math.max(localProfile.strongGames, remote.strong_games ?? 0),
-      experience: Math.max(localProfile.experience, remote.experience ?? 0),
-      pressureIndex: Math.max(localProfile.pressureIndex, remote.pressure_index ?? 0),
-      endgamePrep: Math.max(localProfile.endgamePrep, remote.endgame_prep ?? 0),
-      openingPrep: Math.max(localProfile.openingPrep, remote.opening_prep ?? 0)
+    return {
+      gamesPlayed: data.games_played ?? 0,
+      wins: data.wins ?? 0,
+      losses: data.losses ?? 0,
+      draws: data.draws ?? 0,
+      strongGames: data.strong_games ?? 0,
+      experience: data.experience ?? 0,
+      pressureIndex: data.pressure_index ?? 0,
+      endgamePrep: data.endgame_prep ?? 0,
+      openingPrep: data.opening_prep ?? 0
     };
-
-    saveAdaptiveProfile(merged);
-    return merged;
   } catch {
-    return localProfile;
+    return { ...DEFAULT_PROFILE };
   }
 };
 
 export const persistAdaptiveProfile = async (profile: AdaptiveProfile) => {
-  if (!hasSupabaseConfig()) {
+  if (!supabase) {
+    return;
+  }
+
+  const playerId = await getAuthenticatedPlayerId();
+  if (!playerId) {
     return;
   }
 
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/cedar_ai_profiles`, {
-      method: "POST",
-      headers: {
-        ...supabaseHeaders(),
-        Prefer: "resolution=merge-duplicates,return=minimal"
-      },
-      body: JSON.stringify({
-        profile_key: PROFILE_KEY,
+    const { error } = await supabase.from("cedar_ai_profiles").upsert(
+      {
+        profile_key: playerId,
         games_played: profile.gamesPlayed,
         wins: profile.wins,
         losses: profile.losses,
@@ -205,28 +161,34 @@ export const persistAdaptiveProfile = async (profile: AdaptiveProfile) => {
         endgame_prep: profile.endgamePrep,
         opening_prep: profile.openingPrep,
         updated_at: new Date().toISOString()
-      })
-    });
+      },
+      { onConflict: "profile_key" }
+    );
+
+    if (error) {
+      console.error("Failed to sync adaptive profile", error);
+    }
   } catch {
-    // Keep local profile even if network sync fails.
+    // Adaptive memory is best-effort; gameplay remains available.
   }
 };
 
 export const persistMatchHistory = async (entry: MatchHistoryEntry) => {
-  if (!supabase) {
+  if (!supabase || !entry.playerId) {
     return;
   }
 
   try {
     const { error } = await supabase.from("cedar_match_history").insert({
-      player_id: entry.playerId ?? null,
-        player_name: entry.playerName,
-        difficulty: entry.difficulty,
-        result: entry.result,
-        move_count: entry.moveCount,
-        status_text: entry.statusText,
-        created_at: new Date().toISOString()
-      });
+      player_id: entry.playerId,
+      player_name: entry.playerName,
+      difficulty: entry.difficulty,
+      result: entry.result,
+      move_count: entry.moveCount,
+      status_text: entry.statusText,
+      created_at: new Date().toISOString()
+    });
+
     if (error) {
       console.error("Failed to write match history", error);
     }
