@@ -1,9 +1,9 @@
-name: Verify Cedar Chess upgrade
+name: Cedar Chess CI
 
 on:
   push:
     branches:
-      - codex/stockfish19-security-landing
+      - main
   pull_request:
     branches:
       - main
