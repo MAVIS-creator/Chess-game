@@ -25,7 +25,13 @@ export default async function handler(req, res) {
     return sendJson(res, 429, { error: "Too many engine requests." });
   }
 
-  const payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
+  let payload;
+  try {
+    payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
+  } catch {
+    return sendJson(res, 400, { error: "Invalid JSON." });
+  }
+
   const fen = typeof payload.fen === "string" ? payload.fen.trim() : "";
 
   if (!fen || fen.length > 120) {
