@@ -15,60 +15,75 @@ create table if not exists public.cedar_ai_profiles (
 
 create table if not exists public.cedar_match_history (
   id bigint generated always as identity primary key,
-  player_id uuid references auth.users(id) on delete set null,
-  player_name text not null default 'Guest',
-  difficulty text not null,
+  player_id uuid references auth.users(id) on delete cascade,
+  player_name text not null default 'Guest' check (char_length(player_name) between 1 and 40),
+  difficulty text not null check (difficulty in ('Easy', 'Normal', 'Hard', 'Boss Mode', 'Nightmare Mode', 'Impossible')),
   result text not null check (result in ('win', 'loss', 'draw')),
-  move_count integeingr not null default 0 check (move_count >= 0),
-  status_text text not null,
+  move_count integer not null default 0 check (move_count >= 0),
+  status_text text not null check (char_length(status_text) <= 500),
   created_at timestamptz not null default timezone('utc', now())
 );
 
 create index if not exists cedar_match_history_created_at_idx
   on public.cedar_match_history (created_at desc);
+create index if not exists cedar_match_history_player_id_idx
+  on public.cedar_match_history (player_id, created_at desc);
 
 alter table public.cedar_ai_profiles enable row level security;
 alter table public.cedar_match_history enable row level security;
 
+-- Remove the legacy anonymous policies before creating per-user policies.
 drop policy if exists "public can read ai profiles" on public.cedar_ai_profiles;
-create policy "public can read ai profiles"
+drop policy if exists "public can upsert ai profiles" on public.cedar_ai_profiles;
+drop policy if exists "public can update ai profiles" on public.cedar_ai_profiles;
+drop policy if exists "public can insert match history" on public.cedar_match_history;
+drop policy if exists "public can read own-style match history feed" on public.cedar_match_history;
+drop policy if exists "players can read own ai profile" on public.cedar_ai_profiles;
+drop policy if exists "players can insert own ai profile" on public.cedar_ai_profiles;
+drop policy if exists "players can update own ai profile" on public.cedar_ai_profiles;
+drop policy if exists "players can insert own match history" on public.cedar_match_history;
+drop policy if exists "players can read own match history" on public.cedar_match_history;
+
+create policy "players can read own ai profile"
   on public.cedar_ai_profiles
   for select
-  to anon, authenticated
-  using (true);
+  to authenticated
+  using (profile_key = auth.uid()::text);
 
-drop policy if exists "public can upsert ai profiles" on public.cedar_ai_profiles;
-create policy "public can upsert ai profiles"
+create policy "players can insert own ai profile"
   on public.cedar_ai_profiles
   for insert
-  to anon, authenticated
-  with check (true);
+  to authenticated
+  with check (profile_key = auth.uid()::text);
 
-drop policy if exists "public can update ai profiles" on public.cedar_ai_profiles;
-create policy "public can update ai profiles"
+create policy "players can update own ai profile"
   on public.cedar_ai_profiles
   for update
-  to anon, authenticated
-  using (true)
-  with check (true);
+  to authenticated
+  using (profile_key = auth.uid()::text)
+  with check (profile_key = auth.uid()::text);
 
-drop policy if exists "public can insert match history" on public.cedar_match_history;
-create policy "public can insert match history"
+create policy "players can insert own match history"
   on public.cedar_match_history
   for insert
-  to anon, authenticated
-  with check (true);
+  to authenticated
+  with check (player_id = auth.uid());
 
-drop policy if exists "public can read own-style match history feed" on public.cedar_match_history;
-create policy "public can read own-style match history feed"
+create policy "players can read own match history"
   on public.cedar_match_history
   for select
-  to anon, authenticated
-  using (true);
+  to authenticated
+  using (player_id = auth.uid());
+
+revoke all on table public.cedar_ai_profiles from anon;
+revoke all on table public.cedar_match_history from anon;
+grant select, insert, update on table public.cedar_ai_profiles to authenticated;
+grant select, insert on table public.cedar_match_history to authenticated;
 
 create or replace function public.set_cedar_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = timezone('utc', now());
