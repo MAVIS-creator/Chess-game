@@ -267,7 +267,7 @@ body:not(.game-mode) {
   }
 
   .landing-visual {
-    inset-left: 24%;
+    left: 24%;
   }
 }
 
