@@ -1653,3 +1653,35 @@ h1 {
     font-size: 0.75rem;
   }
 }
+
+
+/* Visible engine provenance: backend that generated the previous AI move. */
+.info-pill.engine-source-pill {
+  font-size: 0.77rem;
+  font-weight: 800;
+  white-space: nowrap;
+  border: 1px solid rgba(161, 166, 152, 0.42);
+  background: rgba(34, 42, 36, 0.96);
+  color: #f2eadb;
+  font-variant-numeric: tabular-nums;
+}
+.info-pill.engine-source-pill.engine-gcp {
+  border-color: rgba(103, 173, 224, 0.56);
+  background: rgba(16, 50, 67, 0.95);
+  color: #d6f2ff;
+}
+.info-pill.engine-source-pill.engine-local {
+  border-color: rgba(209, 170, 105, 0.58);
+  background: rgba(75, 49, 20, 0.96);
+  color: #ffe6b6;
+}
+.info-pill.engine-source-pill.engine-idle {
+  color: #e5e2d8;
+}
+@media (max-width: 640px) {
+  .compact-info-bar .engine-source-pill {
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    padding: 0.4rem 0.58rem;
+  }
+}
