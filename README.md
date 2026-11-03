@@ -48,6 +48,34 @@ The landing page now keeps chess itself at the center of the UI.
 - The animation is powered by `chess.js`, so the demo sequence consists of legal moves rather than a decorative fake board.
 - `prefers-reduced-motion` is respected.
 
+## Player accounts and credential changes
+
+Cedar Chess now has **Account settings** on the signed-in match menu. The settings page
+lets players request an email change (with their current password) and change their
+password (after validating the current password, with a minimum of eight characters).
+
+- Sign-in accepts a **player name or email address**. Existing name-only accounts keep
+  their legacy player-name login until their account email actually changes.
+- New registrations can supply a personal email address (recommended). When used,
+  sign in with **that email** rather than the player name. Supabase may require
+  confirmation before the first login.
+- Email changes are handled by `supabase.auth.updateUser`. The new email is not treated
+  as active until Supabase completes its verification steps, and the player stays signed
+  in while verification is pending.
+- Changing a password verifies the existing password through Supabase Auth first.
+  Passwords are never stored in the game database or sent to the AI / Stockfish routes.
+- Existing accounts created with an inaccessible generated `@players.cedar-chess.app`
+  address **may not be able to approve a secure email change at the old address**.
+  If Supabase requires approvals at both addresses, the project owner must handle
+  a secure migration of that legacy account. Do not turn off secure email change
+  globally simply to make those accounts work.
+
+**Deployment setup:** In Supabase Auth URL Configuration, allowlist the production
+Cedar Chess origin as an Auth redirect URL so signup and email-change verification
+links return to the app. Keep email confirmation and secure email-change protection
+enabled. Password security settings are under Supabase Auth configuration; leaked
+password protection may depend on the Supabase plan.
+
 ## Security model
 
 ### Provider keys
