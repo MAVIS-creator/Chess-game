@@ -197,6 +197,7 @@ const enhanceLanding = () => {
   activeDemo?.dispose();
   activeDemo = null;
   const isAuth = shell.classList.contains("auth-shell");
+  const isRecovery = shell.classList.contains("recovery-shell");
   const isAccount = shell.classList.contains("account-shell");
   shell.dataset.landingEnhanced = isAccount ? "account" : "true";
 
@@ -263,7 +264,7 @@ const enhanceLanding = () => {
       if (isAccount) {
         document.querySelector<HTMLButtonElement>("#account-back")?.click();
       } else if (isAuth) {
-        focusInput("#auth-player-name");
+        focusInput(isRecovery ? "#recovery-email, #recovery-new-password" : "#auth-player-name");
       } else {
         document.querySelector<HTMLButtonElement>("#start-match")?.click();
       }
@@ -272,13 +273,19 @@ const enhanceLanding = () => {
     if (isAccount) {
       focusInput("#settings-new-email");
     } else if (isAuth) {
-      focusInput("#auth-player-name");
+      focusInput(isRecovery ? "#recovery-email, #recovery-new-password" : "#auth-player-name");
     } else {
       document.querySelector<HTMLButtonElement>("#open-account-settings")?.click();
     }
   };
 
+  let suppressClick = false;
   nav.addEventListener("click", (event) => {
+    if (suppressClick) {
+      event.preventDefault();
+      suppressClick = false;
+      return;
+    }
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-landing-action]");
     if (button) {
       navigate(button.dataset.landingAction as Destination);
@@ -303,6 +310,7 @@ const enhanceLanding = () => {
     const deltaY = event.clientY - gestureStart.y;
     if (Math.abs(deltaX) >= 45 && Math.abs(deltaY) < 60) {
       event.preventDefault();
+      suppressClick = true;
       const delta = deltaX < 0 ? 1 : -1;
       const selected = TABS[Math.min(TABS.length - 1, Math.max(0, gestureStart.index + delta))];
       navigate(selected.id);
@@ -334,7 +342,7 @@ const enhanceLanding = () => {
   hero.prepend(visual);
 
   const heading = hero.querySelector<HTMLHeadingElement>("h1");
-  if (heading) {
+  if (heading && !isRecovery) {
     heading.textContent = isAuth ? "Every move starts here." : "The board is yours.";
   }
 
