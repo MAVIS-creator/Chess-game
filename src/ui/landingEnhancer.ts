@@ -88,9 +88,13 @@ class LandingBoardDemo {
         const isLight = ((file.charCodeAt(0) - 97) + rank) % 2 === 1;
         const isLastMove = this.lastMove?.includes(square) ?? false;
         const pieceText = piece ? PIECES[`${piece.color}${piece.type}`] : "";
+        const pieceMarkup =
+          piece && pieceText
+            ? `<span class="landing-piece ${piece.color === "w" ? "is-white" : "is-black"}">${pieceText}</span>`
+            : "";
         cells.push(
           `<div class="landing-square ${isLight ? "is-light" : "is-dark"} ${isLastMove ? "is-last" : ""}" data-square="${square}">` +
-            `${pieceText ? `<span class="landing-piece ${piece.color === "w" ? "is-white" : "is-black"}">${pieceText}</span>` : ""}` +
+            pieceMarkup +
           `</div>`
         );
       }
