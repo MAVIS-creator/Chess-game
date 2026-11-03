@@ -32,6 +32,7 @@ export class ChessScene {
   private readonly pointer = new THREE.Vector2();
   private readonly animations = new Map<string, PieceAnimation>();
   private frameHandle = 0;
+  private disposed = false;
   private registry: ModelRegistry | null = null;
   private onSquareSelect: ((square: SquareId) => void) | null = null;
   private activeCameraPreset: CameraPreset = "perspective";
@@ -76,6 +77,9 @@ export class ChessScene {
 
   async loadScene() {
     const gltf = await this.loader.loadAsync(ASSET_PATH);
+    if (this.disposed) {
+      return { pieceCount: 0, squareCount: 0 };
+    }
     gltf.scene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
@@ -275,12 +279,16 @@ export class ChessScene {
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     cancelAnimationFrame(this.frameHandle);
     this.controls.dispose();
     this.renderer.domElement.removeEventListener("pointerdown", this.handlePointerDown);
     this.renderer.dispose();
     window.removeEventListener("resize", this.handleResize);
-    this.mount.removeChild(this.renderer.domElement);
+    if (this.renderer.domElement.parentElement === this.mount) {
+      this.mount.removeChild(this.renderer.domElement);
+    }
   }
 
   private addLights() {
@@ -410,6 +418,7 @@ export class ChessScene {
 
   private start() {
     const render = () => {
+      if (this.disposed) return;
       const delta = this.clock.getDelta();
       this.controls.update();
       this.updateAnimations(delta);
