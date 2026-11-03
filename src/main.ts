@@ -1,4 +1,5 @@
 import "./styles.css";
+import { changeAccountEmail, changeAccountPassword, getAccountDetails } from "./auth/accountSettings";
 import {
   getCurrentPlayer,
   onPlayerSessionChange,
@@ -48,6 +49,10 @@ let activeSessionCleanup: (() => void) | null = null;
 let authListenerCleanup: (() => void) | null = null;
 let authMode: "login" | "signup" = "login";
 let authError = "";
+let authNotice = "";
+
+const escapeHtml = (value: string) =>
+  value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
 const renderAuth = () => {
   activeSessionCleanup?.();
@@ -70,10 +75,10 @@ const renderAuth = () => {
         </div>
         <h1>Sign in before the board opens.</h1>
         <p class="lede">
-          Use your name and password to open the board and start a match.
+          Use your player name or linked email and password to open the board and start a match.
         </p>
         <div class="menu-notes">
-          <div class="menu-chip"><span>Login</span><strong>Name and password</strong></div>
+          <div class="menu-chip"><span>Login</span><strong>Name or email + password</strong></div>
           <div class="menu-chip"><span>Modes</span><strong>Choose your challenge</strong></div>
           <div class="menu-chip"><span>Match</span><strong>Board opens right after setup</strong></div>
         </div>
@@ -89,14 +94,22 @@ const renderAuth = () => {
           <button class="auth-switch-button ${authMode === "signup" ? "is-active" : ""}" type="button" data-auth-mode="signup">Sign up</button>
         </div>
         <label class="select-block">
-          <span>Name</span>
-          <input id="auth-player-name" class="menu-input" type="text" maxlength="20" placeholder="Name" value="${playerName}" />
+          <span>${authMode === "login" ? "Player name or email" : "Player name"}</span>
+          <input id="auth-player-name" class="menu-input" type="text" maxlength="254" autocomplete="username" placeholder="${authMode === "login" ? "Name or email" : "Your name"}" value="${escapeHtml(playerName)}" />
         </label>
+        ${authMode === "signup" ? `
+          <label class="select-block">
+            <span>Personal email (recommended)</span>
+            <input id="auth-email" class="menu-input" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com" />
+            <small class="account-note">Use a real email to verify and recover your account. Sign in with this email afterwards.</small>
+          </label>
+        ` : ""}
         <label class="select-block">
           <span>Password</span>
-          <input id="auth-password" class="menu-input" type="password" minlength="6" placeholder="Enter your password" />
+          <input id="auth-password" class="menu-input" type="password" autocomplete="${authMode === "signup" ? "new-password" : "current-password"}" minlength="${authMode === "signup" ? 8 : 6}" placeholder="Enter your password" />
         </label>
-        ${authError ? `<p class="auth-error">${authError}</p>` : ""}
+        ${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}
+        ${authNotice ? `<p class="account-message is-success" role="status">${escapeHtml(authNotice)}</p>` : ""}
         <button class="start-button" id="auth-submit" type="button">${authMode === "login" ? "Enter game" : "Create account"}</button>
       </aside>
     </main>
@@ -115,6 +128,7 @@ const renderAuth = () => {
     button.addEventListener("click", () => {
       authMode = button.dataset.authMode === "signup" ? "signup" : "login";
       authError = "";
+      authNotice = "";
       renderAuth();
     });
   }
@@ -123,8 +137,8 @@ const renderAuth = () => {
     const username = nameInput?.value.trim() || "";
     const password = passwordInput?.value ?? "";
 
-    if (!username || password.length < 6) {
-      authError = "Enter a player name and a password with at least 6 characters.";
+    if (!username || password.length < (authMode === "signup" ? 8 : 6)) {
+      authError = `Enter a name/email and a password with at least ${authMode === "signup" ? 8 : 6} characters.`;
       renderAuth();
       return;
     }
@@ -133,11 +147,20 @@ const renderAuth = () => {
     submitButton.textContent = authMode === "login" ? "Checking..." : "Creating...";
 
     try {
-      activePlayer =
+      const signedInPlayer =
         authMode === "login"
           ? await signInPlayer(username, password)
-          : await signUpPlayer(username, password);
+          : await signUpPlayer(username, password, document.querySelector<HTMLInputElement>("#auth-email")?.value ?? "");
+      if (!signedInPlayer) {
+        authMode = "login";
+        authError = "";
+        authNotice = "Account created. Check your email for a confirmation link before signing in.";
+        renderAuth();
+        return;
+      }
+      activePlayer = signedInPlayer;
       authError = "";
+      authNotice = "";
       playerName = activePlayer.displayName;
       renderMenu();
     } catch (error) {
@@ -168,7 +191,7 @@ const renderMenu = () => {
           </div>
           <div class="brand-copy">
           <p class="eyebrow">Cedar Chess</p>
-            <strong>${activePlayer.displayName}</strong>
+            <strong>${escapeHtml(activePlayer.displayName)}</strong>
           </div>
         </div>
         <h1>A clean wooden chess table, a focused match, and a strong AI opponent.</h1>
@@ -200,7 +223,7 @@ const renderMenu = () => {
         </div>
         <label class="select-block">
           <span>Name</span>
-          <input id="menu-player-name" class="menu-input" type="text" maxlength="20" placeholder="Name" value="${playerName}" />
+          <input id="menu-player-name" class="menu-input" type="text" maxlength="20" placeholder="Name" value="${escapeHtml(playerName)}" />
         </label>
         <label class="select-block">
           <span>Difficulty</span>
@@ -217,6 +240,7 @@ const renderMenu = () => {
           <p>${difficultyDescription(selectedDifficulty)}</p>
         </div>
         <button class="start-button" id="start-match" type="button">Start game</button>
+        <button class="account-link-button" id="open-account-settings" type="button">♔ Account settings · Change email or password</button>
       </aside>
     </main>
   `;
@@ -241,10 +265,132 @@ const renderMenu = () => {
     playerName = playerNameInput.value.trim();
   });
 
+  document.querySelector<HTMLButtonElement>("#open-account-settings")?.addEventListener("click", () => {
+    void renderAccountSettings();
+  });
+
   startButton?.addEventListener("click", () => {
     playerName = playerNameInput?.value.trim() || activePlayer?.displayName || "Guest";
     soundboard.prime();
     void startGame();
+  });
+};
+
+const renderAccountSettings = async () => {
+  activeSessionCleanup?.();
+  activeSessionCleanup = null;
+  const accountId = activePlayer?.id;
+  if (!accountId) {
+    renderAuth();
+    return;
+  }
+
+  let details: Awaited<ReturnType<typeof getAccountDetails>>;
+  try {
+    details = await getAccountDetails();
+  } catch {
+    renderAuth();
+    return;
+  }
+  if (!activePlayer || activePlayer.id !== accountId) {
+    return;
+  }
+
+  document.body.classList.remove("game-mode");
+  app.innerHTML = `
+    <main class="menu-shell account-shell">
+      <section class="menu-hero account-hero">
+        <div class="brand-mark"><div class="brand-copy"><p class="eyebrow">Cedar Chess</p><strong>Account security</strong></div></div>
+        <h1>Make your next move secure.</h1>
+        <p class="lede">Manage the login details for <strong>${escapeHtml(activePlayer.displayName)}</strong> without leaving Cedar Chess.</p>
+        <div class="hero-status account-overview">
+          <span class="hero-label">Current email</span>
+          <strong id="account-email-display"></strong>
+          <p>${details.hasPersonalEmail ? "Email updates may require confirmation at your old and new addresses." : "This is a legacy player-name account. Linking a personal email may require verification at the original placeholder address, depending on your Supabase settings."}</p>
+        </div>
+        <button class="account-link-button account-back" id="account-back" type="button">← Back to match menu</button>
+      </section>
+      <aside class="menu-panel account-panel">
+        <div class="hero-status compact">
+          <span class="hero-label">Email address</span>
+          <strong>Change your login email</strong>
+          <p>Verify your current password. Your new email may need confirmation before it takes effect. Once changed, sign in with your new email.</p>
+        </div>
+        <form class="account-form" id="change-email-form">
+          <label class="select-block"><span>New email</span><input class="menu-input" id="settings-new-email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required /></label>
+          <label class="select-block"><span>Current password</span><input class="menu-input" id="settings-email-password" type="password" autocomplete="current-password" required /></label>
+          <p class="account-message" id="email-change-status" role="status" aria-live="polite"></p>
+          <button class="start-button" type="submit">Update email</button>
+        </form>
+        <div class="hero-status compact">
+          <span class="hero-label">Password</span>
+          <strong>Choose a new password</strong>
+          <p>Enter your current password, then a new password with at least eight characters.</p>
+        </div>
+        <form class="account-form" id="change-password-form">
+          <label class="select-block"><span>Current password</span><input class="menu-input" id="settings-old-password" type="password" autocomplete="current-password" required /></label>
+          <label class="select-block"><span>New password</span><input class="menu-input" id="settings-new-password" type="password" minlength="8" autocomplete="new-password" required /></label>
+          <label class="select-block"><span>Confirm new password</span><input class="menu-input" id="settings-confirm-password" type="password" minlength="8" autocomplete="new-password" required /></label>
+          <p class="account-message" id="password-change-status" role="status" aria-live="polite"></p>
+          <button class="start-button" type="submit">Update password</button>
+        </form>
+      </aside>
+    </main>
+  `;
+
+  const emailDisplay = document.querySelector<HTMLElement>("#account-email-display");
+  if (emailDisplay) {
+    emailDisplay.textContent = details.hasPersonalEmail ? details.email : "No personal email linked";
+  }
+  document.querySelector<HTMLButtonElement>("#account-back")?.addEventListener("click", renderMenu);
+  const report = (id: string, message: string, success: boolean) => {
+    const status = document.getElementById(id);
+    if (status) {
+      status.textContent = message;
+      status.classList.toggle("is-success", success);
+    }
+  };
+
+  document.querySelector<HTMLFormElement>("#change-email-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = document.querySelector<HTMLInputElement>("#settings-new-email")?.value ?? "";
+    const currentPassword = document.querySelector<HTMLInputElement>("#settings-email-password")?.value ?? "";
+    const button = document.querySelector<HTMLButtonElement>("#change-email-form button[type=submit]");
+    if (button) button.disabled = true;
+    report("email-change-status", "", false);
+    try {
+      await changeAccountEmail(email, currentPassword);
+      report("email-change-status", "Request sent. Follow the verification instructions in your email. Your current address remains active until the change is approved.", true);
+      const passwordField = document.querySelector<HTMLInputElement>("#settings-email-password");
+      if (passwordField) passwordField.value = "";
+    } catch (error) {
+      report("email-change-status", error instanceof Error ? error.message : "Could not update email.", false);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+
+  document.querySelector<HTMLFormElement>("#change-password-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const oldPassword = document.querySelector<HTMLInputElement>("#settings-old-password")?.value ?? "";
+    const newPassword = document.querySelector<HTMLInputElement>("#settings-new-password")?.value ?? "";
+    const confirmation = document.querySelector<HTMLInputElement>("#settings-confirm-password")?.value ?? "";
+    if (newPassword !== confirmation) {
+      report("password-change-status", "The new passwords do not match.", false);
+      return;
+    }
+    const button = document.querySelector<HTMLButtonElement>("#change-password-form button[type=submit]");
+    if (button) button.disabled = true;
+    report("password-change-status", "", false);
+    try {
+      await changeAccountPassword(oldPassword, newPassword);
+      document.querySelector<HTMLFormElement>("#change-password-form")?.reset();
+      report("password-change-status", "Password updated successfully.", true);
+    } catch (error) {
+      report("password-change-status", error instanceof Error ? error.message : "Could not change password.", false);
+    } finally {
+      if (button) button.disabled = false;
+    }
   });
 };
 
