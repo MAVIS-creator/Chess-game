@@ -85,6 +85,16 @@ export class Hud {
     const timeoutWinner =
       botState.timedOutSide === null ? null : botState.timedOutSide === botState.playerColor ? "AI" : botState.playerName;
 
+    // Engine provenance is the backend that produced the last AI move.
+    // "stockfish" vs "llm" tracks commentary/decision logic, not GCP vs WASM.
+    const engineStatus =
+      botState.engineSource === "gcp-stockfish-19"
+        ? { label: "GCP · Stockfish 19", className: "engine-gcp", description: "Last AI move analyzed by the main Google Cloud Stockfish engine." }
+        : botState.engineSource === "local-stockfish-19"
+          ? { label: "Local · Stockfish 19", className: "engine-local", description: "Last AI move analyzed by the browser fallback Stockfish engine." }
+          : { label: "Engine · Waiting", className: "engine-idle", description: "No AI engine move has been completed in this match yet." };
+    const engineStatusMarkup = `<span class="info-pill engine-source-pill ${engineStatus.className}" aria-label="Engine source: ${engineStatus.label}" title="${engineStatus.description}">${engineStatus.label}</span>`;
+
     const infoTitle = timeoutWinner
       ? "Time expired"
       : snapshot.gameOver
@@ -219,6 +229,8 @@ export class Hud {
         <span class="info-pill">${infoTitle}</span>
         <span class="info-pill">${difficultyIcon(botState.difficulty)} ${botState.difficulty}</span>
         <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
+        ${engineStatusMarkup}
+        ${engineStatusMarkup}
       </div>
 
       <div class="desktop-card-row">${commentaryMarkup}${lastMoveMarkup}${capturedMarkup}</div>

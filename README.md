@@ -280,6 +280,30 @@ The production build performs the same Stockfish 19 asset sync before TypeScript
 
 Security headers are defined in `vercel.json`, including CSP, clickjacking protection, content-type hardening, restricted browser permissions, and no-store behavior for API responses.
 
+
+## Which Stockfish engine answered a move?
+
+The live gameplay HUD now identifies the **actual engine behind the last
+completed AI move**:
+
+- `GCP · Stockfish 19`: the Google Cloud Run analysis request succeeded.
+- `Local · Stockfish 19`: the remote request failed, timed out, or could
+  not be authenticated, so the browser's Stockfish 19 Lite WASM worker
+  answered that move instead.
+- `Engine · Waiting`: no computer move has been completed yet.
+
+This indicator is shown in both desktop and mobile match HUDs, and updates
+after each AI move. It is not the AI-commentary provider: the earlier
+`stockfish` vs `llm` source refers to the move/commentary decision layer,
+not the engine's execution location.
+
+Both backends analyze standard legal chess moves, including castling,
+en passant, captures and pawn promotion. `MultiPV` is configured per
+difficulty to request **one through five candidate lines**. That number
+is not a restriction on what kinds of chess moves the fallback knows.
+The local build is Stockfish 19 Lite Single (WASM), so its practical search
+strength and latency may differ from the remote GCP instance.
+
 ## Stockfish licensing
 
 The application code and Stockfish are separate works. Stockfish.js is distributed under GPL-3.0. The build script copies the upstream GPL notice and source metadata alongside the browser engine files. See `THIRD_PARTY_NOTICES.md` for the third-party notice.

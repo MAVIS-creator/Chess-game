@@ -38,6 +38,7 @@ export interface BotRuntimeState {
   thinkingStage: string | null;
   lastStyle: string;
   source: "stockfish" | "llm";
+  engineSource: "gcp-stockfish-19" | "local-stockfish-19" | null;
   playerName: string;
   playerColor: PieceColor;
   botColor: PieceColor;
@@ -58,6 +59,7 @@ export class AiMoveController {
   private commentary = "The board is waiting.";
   private lastStyle = "opening";
   private source: "stockfish" | "llm" = "stockfish";
+  private engineSource: "gcp-stockfish-19" | "local-stockfish-19" | null = null;
   private playerName = "Guest";
   private playerId: string | null = null;
   private playerTimeMs = 0;
@@ -90,6 +92,7 @@ export class AiMoveController {
       thinkingStage: this.thinkingStage,
       lastStyle: this.lastStyle,
       source: this.source,
+      engineSource: this.engineSource,
       playerName: this.playerName,
       playerColor: this.playerColor,
       botColor: this.botColor,
@@ -196,6 +199,7 @@ export class AiMoveController {
     this.commentary = `${this.personality.name} awaits your first move.`;
     this.lastStyle = "opening";
     this.source = "stockfish";
+    this.engineSource = null;
     this.thinking = false;
     this.thinkingStage = null;
     this.recordedGameSignature = null;
@@ -277,6 +281,7 @@ export class AiMoveController {
           this.commentary = executed.commentary;
           this.lastStyle = executed.style;
           this.source = "stockfish";
+          this.engineSource = mateScan.source ?? null;
           this.notify();
           return true;
         }
@@ -322,6 +327,9 @@ export class AiMoveController {
       this.commentary = executed.commentary;
       this.lastStyle = executed.style;
       this.source = executed.source;
+      // The source belongs to the position analysis that produced the AI move.
+      // Commentary LLM fallback is a separate mechanism and must not replace it.
+      this.engineSource = analysis.source ?? null;
       this.notify();
       void this.decorateCommentaryAfterMove(moveRequest, decision.selectedMove);
       return true;
