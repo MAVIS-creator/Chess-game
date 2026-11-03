@@ -24,6 +24,7 @@ import type { GamePieceState, MoveSummary, PieceColor, PieceRole, SquareId } fro
 import { ChessScene } from "./render/ChessScene";
 import { FlatChessBoard } from "./render/FlatChessBoard";
 import { Hud } from "./ui/Hud";
+import { isMobileChessDevice } from "./ui/deviceLayout";
 
 declare global {
   interface Window {
@@ -556,6 +557,7 @@ type BoardRenderer = {
     checkedKingSquare?: SquareId | null
   ) => void;
   cycleCameraPreset: (lastMove: MoveSummary | null) => void;
+  setCameraPreset?: (preset: "perspective" | "top-down") => void;
   zoomIn: () => void;
   zoomOut: () => void;
   dispose: () => void;
@@ -633,7 +635,7 @@ const startGame = async () => {
 
   const playerColor: PieceColor = selectedDifficulty === "Impossible" ? "black" : "white";
   const chessScene: BoardRenderer =
-    window.innerWidth <= 640 ? new FlatChessBoard(boardStage) : new ChessScene(boardStage);
+    isMobileChessDevice() ? new FlatChessBoard(boardStage) : new ChessScene(boardStage);
   const controller = new ChessController();
   const aiController = new AiMoveController(controller, {
     playerColor,
@@ -653,7 +655,7 @@ const startGame = async () => {
   let recordedOutcomeSignature = "";
   const botColor: PieceColor = playerColor === "white" ? "black" : "white";
   let sessionActive = true;
-  const compactLayout = window.innerWidth <= 640;
+  const compactLayout = isMobileChessDevice();
 
   aiController.setPlayerIdentity(activePlayer.id, playerName);
   aiController.setDifficulty(selectedDifficulty);
@@ -830,6 +832,10 @@ const startGame = async () => {
 
   hud.bindCycleCamera(() => {
     chessScene.cycleCameraPreset(controller.getSnapshot().lastMove);
+  });
+
+  hud.bindCameraView((view) => {
+    chessScene.setCameraPreset?.(view);
   });
 
   hud.bindZoomIn(() => {
