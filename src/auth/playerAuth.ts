@@ -50,18 +50,19 @@ export const signInPlayer = async (username: string, password: string) => {
     throw new Error("Login is unavailable right now.");
   }
 
-  const normalized = normalizeUsername(username);
-  if (!normalized) {
-    throw new Error("Enter a valid player name.");
+  const login = username.trim();
+  const email = login.includes("@") ? login.toLowerCase() : buildSyntheticEmail(login);
+  if (!login || (!login.includes("@") && !normalizeUsername(login))) {
+    throw new Error("Enter a valid player name or email.");
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: buildSyntheticEmail(normalized),
+    email,
     password
   });
 
   if (error) {
-    throw new Error("Wrong name or password.");
+    throw new Error("Wrong name/email or password.");
   }
 
   if (!data.user) {
@@ -71,7 +72,7 @@ export const signInPlayer = async (username: string, password: string) => {
   return userToIdentity(data.user);
 };
 
-export const signUpPlayer = async (username: string, password: string) => {
+export const signUpPlayer = async (username: string, password: string, realEmail = "") => {
   if (!supabase) {
     throw new Error("Sign up is unavailable right now.");
   }
@@ -81,10 +82,16 @@ export const signUpPlayer = async (username: string, password: string) => {
     throw new Error("Enter a valid player name.");
   }
 
+  const email = realEmail.trim().toLowerCase();
+  if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith("@players.cedar-chess.app"))) {
+    throw new Error("Enter a valid personal email address.");
+  }
+
   const { data, error } = await supabase.auth.signUp({
-    email: buildSyntheticEmail(normalized),
+    email: email || buildSyntheticEmail(normalized),
     password,
     options: {
+      emailRedirectTo: window.location.origin,
       data: {
         username: normalized,
         display_name: username.trim() || normalized
@@ -101,7 +108,7 @@ export const signUpPlayer = async (username: string, password: string) => {
   }
 
   if (!data.session) {
-    throw new Error("Account created. Log in to continue.");
+    return null;
   }
 
   return userToIdentity(data.user);
