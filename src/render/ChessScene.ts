@@ -500,8 +500,13 @@ export class ChessScene {
     this.controls.target.set(0, 0.02, 0);
 
     if (preset === "top-down") {
+      // Camera forward points almost straight down. Explicit +X as screen-up
+      // prevents the near-vertical lookAt() roll singularity and puts Black at
+      // the top, White at the bottom.
+      this.camera.up.set(1, 0, 0);
       this.camera.position.set(0, 0.63, 0.001);
     } else {
+      this.camera.up.set(0, 1, 0);
       // White is on the near edge. A medium-high 3/4 viewpoint keeps
       // every file and both back ranks visible without constant orbiting.
       this.camera.position.set(-0.34, 0.37, 0.14);
