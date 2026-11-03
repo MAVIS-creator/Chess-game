@@ -125,6 +125,14 @@ const enhanceLanding = () => {
     return;
   }
 
+  // Account settings has its own heading and credential controls. Do not replace
+  // them with the interactive landing animation or Play/Level shortcuts.
+  if (shell.classList.contains("account-shell")) {
+    activeDemo?.dispose();
+    activeDemo = null;
+    return;
+  }
+
   if (shell.dataset.landingEnhanced === "true") {
     return;
   }
