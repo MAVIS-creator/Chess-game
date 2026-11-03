@@ -1,3 +1,4 @@
+import { getApiAuthHeaders } from "../auth/apiSession";
 import type { EngineCandidateMove } from "../engine/candidateMoves";
 import {
   DEFAULT_PROVIDER,
@@ -35,6 +36,7 @@ export interface BotCommentaryResult {
 }
 
 type CommentaryActor = "player" | "bot";
+type RemoteProvider = Exclude<BotProvider, "disabled">;
 
 const validateBotMove = (
   selectedMove: string,
@@ -56,20 +58,22 @@ const validateBotMove = (
 const neutralFallback = (
   difficulty: BotDifficulty,
   candidateMoves: EngineCandidateMove[]
-): BotDecisionResult => ({
-  selectedMove: candidateMoves[0].move,
-  commentary: DIFFICULTY_CONFIG[difficulty].commentaryFallback,
-  style: candidateMoves[0].label,
-  provider: "disabled",
-  usedFallback: true
-});
+): BotDecisionResult => {
+  const best = candidateMoves[0];
+  return {
+    selectedMove: best?.move ?? "",
+    commentary: DIFFICULTY_CONFIG[difficulty].commentaryFallback,
+    style: best?.label ?? "best",
+    provider: "disabled",
+    usedFallback: true
+  };
+};
 
 const scoreGapFromBest = (best: EngineCandidateMove, candidate: EngineCandidateMove) => {
   if (best.mateIn !== null || candidate.mateIn !== null) {
     if (best.mateIn !== null && candidate.mateIn !== null) {
       return Math.abs(best.mateIn - candidate.mateIn) * 1000;
     }
-
     return 100000;
   }
 
@@ -112,67 +116,6 @@ const buildSafeCandidateSet = (
   return safe.length > 0 ? safe : [best];
 };
 
-const openAiCompatiblePayload = (
-  model: string,
-  temperature: number,
-  userPrompt: string
-) => ({
-  model,
-  temperature,
-  response_format: {
-    type: "json_schema",
-    json_schema: {
-      name: "bot_move_choice",
-      strict: true,
-      schema: {
-        type: "object",
-        additionalProperties: false,
-        required: ["selectedMove", "commentary", "style"],
-        properties: {
-          selectedMove: {
-            type: "string",
-            pattern: "^[a-h][1-8][a-h][1-8][qrbn]?$"
-          },
-          commentary: {
-            type: "string"
-          },
-          style: {
-            type: "string"
-          }
-        }
-      }
-    }
-  },
-  messages: [
-    { role: "system", content: BOT_SYSTEM_PROMPT },
-    {
-      role: "user",
-      content: userPrompt
-    }
-  ]
-});
-
-const commentarySchema = {
-  type: "json_schema" as const,
-  json_schema: {
-    name: "bot_commentary",
-    strict: true,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["commentary", "style"],
-      properties: {
-        commentary: {
-          type: "string"
-        },
-        style: {
-          type: "string"
-        }
-      }
-    }
-  }
-};
-
 const parseCommentaryResponse = (raw: string): Pick<BotCommentaryResult, "commentary" | "style"> | null => {
   try {
     const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/gim, "").trim()) as Partial<{
@@ -181,19 +124,16 @@ const parseCommentaryResponse = (raw: string): Pick<BotCommentaryResult, "commen
       style: string;
     }>;
 
-    const commentaryText =
-      typeof parsed.commentary === "string" && parsed.commentary.trim().length > 0
+    const commentary =
+      typeof parsed.commentary === "string" && parsed.commentary.trim()
         ? parsed.commentary.trim()
-        : typeof parsed.comment === "string" && parsed.comment.trim().length > 0
+        : typeof parsed.comment === "string" && parsed.comment.trim()
           ? parsed.comment.trim()
           : "Your move exposed something.";
 
     return {
-      commentary: commentaryText,
-      style:
-        typeof parsed.style === "string" && parsed.style.trim().length > 0
-          ? parsed.style.trim()
-          : "engine-backed"
+      commentary,
+      style: typeof parsed.style === "string" && parsed.style.trim() ? parsed.style.trim() : "engine-backed"
     };
   } catch {
     return null;
@@ -206,8 +146,7 @@ export class BotDecisionLayer {
   pickLocalMove(request: BotDecisionRequest): BotDecisionResult {
     const safeCandidateMoves = buildSafeCandidateSet(request.difficulty, request.candidateMoves);
     const fallback = neutralFallback(request.difficulty, safeCandidateMoves);
-    const pickFrom = safeCandidateMoves.length > 0 ? safeCandidateMoves : request.candidateMoves;
-    const chosen = this.selectCandidateByDifficulty(request.difficulty, pickFrom) ?? pickFrom[0];
+    const chosen = this.selectCandidateByDifficulty(request.difficulty, safeCandidateMoves);
 
     if (!chosen) {
       return fallback;
@@ -234,45 +173,44 @@ export class BotDecisionLayer {
     };
     const fallback = neutralFallback(request.difficulty, safeCandidateMoves);
 
-    // In the hardest modes, do not wait on remote providers.
-    // Use Stockfish rank 1 immediately so network or API latency cannot throw the game.
-    if (DIFFICULTY_CONFIG[request.difficulty].forceBestMove) {
+    if (DIFFICULTY_CONFIG[request.difficulty].forceBestMove || this.provider === "disabled") {
       return fallback;
     }
 
-    try {
-      for (const provider of this.getProviderOrderForDifficulty(request.difficulty)) {
-        switch (provider) {
-          case "groq": {
-            const result = await this.callGroq(strictRequest, fallback);
-            if (!result.usedFallback) {
-              return result;
-            }
-            break;
-          }
-          case "openrouter": {
-            const result = await this.callOpenRouter(strictRequest, fallback);
-            if (!result.usedFallback) {
-              return result;
-            }
-            break;
-          }
-          case "gemini": {
-            const result = await this.callGemini(strictRequest, fallback);
-            if (!result.usedFallback) {
-              return result;
-            }
-            break;
-          }
-          default:
-            break;
-        }
+    for (const provider of this.getProviderOrderForDifficulty(request.difficulty)) {
+      const raw = await this.callProxy(
+        provider,
+        "decision",
+        buildBotUserPrompt({
+          ...strictRequest,
+          forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+        }),
+        DIFFICULTY_CONFIG[request.difficulty].temperature,
+        DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
+      );
+
+      if (!raw) {
+        continue;
       }
 
-      return fallback;
-    } catch {
-      return fallback;
+      const parsed = parseBotResponse(raw, safeCandidateMoves);
+      if (!parsed) {
+        continue;
+      }
+
+      return {
+        ...parsed,
+        selectedMove: validateBotMove(
+          parsed.selectedMove,
+          safeCandidateMoves,
+          DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+        ),
+        provider,
+        usedFallback: false
+      };
     }
+
+    return fallback;
   }
 
   getProvider() {
@@ -283,39 +221,32 @@ export class BotDecisionLayer {
     return this.getProviderOrderForDifficulty(difficulty)[0] ?? "disabled";
   }
 
-  private getProviderOrderForDifficulty(difficulty: BotDifficulty): BotProvider[] {
-    const available: BotProvider[] = [];
-    const pushIfAvailable = (provider: BotProvider) => {
-      if (available.includes(provider)) {
-        return;
-      }
+  async decorateMoveCommentary(
+    request: BotDecisionRequest,
+    selectedMove: string
+  ): Promise<BotCommentaryResult | null> {
+    return this.decorateCommentary(request, selectedMove, "bot");
+  }
 
-      if (provider === "groq" && import.meta.env.VITE_GROQ_API_KEY) {
-        available.push(provider);
-      }
+  async decoratePlayerMoveCommentary(
+    request: BotDecisionRequest,
+    selectedMove: string
+  ): Promise<BotCommentaryResult | null> {
+    return this.decorateCommentary(request, selectedMove, "player");
+  }
 
-      if (provider === "openrouter" && import.meta.env.VITE_OPENROUTER_API_KEY) {
-        available.push(provider);
-      }
-
-      if (provider === "gemini" && import.meta.env.VITE_GEMINI_API_KEY) {
-        available.push(provider);
-      }
-    };
-
-    if (difficulty === "Nightmare Mode" || difficulty === "Impossible") {
-      pushIfAvailable("gemini");
-      pushIfAvailable("groq");
-      pushIfAvailable("openrouter");
-      pushIfAvailable(this.provider);
-      return available.length > 0 ? available : ["disabled"];
+  private getProviderOrderForDifficulty(difficulty: BotDifficulty): RemoteProvider[] {
+    if (this.provider === "disabled") {
+      return [];
     }
 
-    pushIfAvailable(this.provider);
-    pushIfAvailable("groq");
-    pushIfAvailable("openrouter");
-    pushIfAvailable("gemini");
-    return available.length > 0 ? available : ["disabled"];
+    const preferred = this.provider as RemoteProvider;
+    const order: RemoteProvider[] =
+      difficulty === "Nightmare Mode" || difficulty === "Impossible"
+        ? ["gemini", "groq", "openrouter", preferred]
+        : [preferred, "groq", "openrouter", "gemini"];
+
+    return order.filter((candidate, index) => order.indexOf(candidate) === index);
   }
 
   private selectCandidateByDifficulty(
@@ -365,445 +296,85 @@ export class BotDecisionLayer {
     return pool[Math.min(3, pool.length - 1)];
   }
 
-  async decorateMoveCommentary(
-    request: BotDecisionRequest,
-    selectedMove: string
-  ): Promise<BotCommentaryResult | null> {
-    return this.decorateCommentary(request, selectedMove, "bot");
-  }
-
-  async decoratePlayerMoveCommentary(
-    request: BotDecisionRequest,
-    selectedMove: string
-  ): Promise<BotCommentaryResult | null> {
-    return this.decorateCommentary(request, selectedMove, "player");
-  }
-
   private async decorateCommentary(
     request: BotDecisionRequest,
     selectedMove: string,
     actor: CommentaryActor
   ): Promise<BotCommentaryResult | null> {
-    const providers = this.getProviderOrderForDifficulty(request.difficulty);
-
-    if (providers[0] === "disabled") {
+    if (this.provider === "disabled") {
       return null;
     }
 
-    try {
-      for (const provider of providers) {
-        switch (provider) {
-          case "groq": {
-            const result = await this.callGroqCommentary(request, selectedMove, actor);
-            if (result) {
-              return result;
-            }
-            break;
-          }
-          case "openrouter": {
-            const result = await this.callOpenRouterCommentary(request, selectedMove, actor);
-            if (result) {
-              return result;
-            }
-            break;
-          }
-          case "gemini": {
-            const result = await this.callGeminiCommentary(request, selectedMove, actor);
-            if (result) {
-              return result;
-            }
-            break;
-          }
-          default:
-            break;
-        }
+    const userPrompt = buildBotCommentaryPrompt(
+      {
+        ...request,
+        forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
+      },
+      selectedMove,
+      actor
+    );
+
+    for (const provider of this.getProviderOrderForDifficulty(request.difficulty)) {
+      const raw = await this.callProxy(
+        provider,
+        "commentary",
+        userPrompt,
+        DIFFICULTY_CONFIG[request.difficulty].temperature,
+        DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
+      );
+      const parsed = raw ? parseCommentaryResponse(raw) : null;
+      if (parsed) {
+        return {
+          ...parsed,
+          provider,
+          usedFallback: false
+        };
       }
-
-      return null;
-    } catch {
-      return null;
     }
+
+    return null;
   }
 
-  private async fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
+  private async callProxy(
+    provider: RemoteProvider,
+    mode: "decision" | "commentary",
+    userPrompt: string,
+    temperature: number,
+    timeoutMs: number
+  ) {
+    const headers = await getApiAuthHeaders();
+    if (!headers.Authorization) {
+      return null;
+    }
+
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    const timeout = window.setTimeout(() => controller.abort(), Math.max(800, Math.min(6000, timeoutMs + 350)));
 
     try {
-      return await fetch(input, {
-        ...init,
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          provider,
+          mode,
+          systemPrompt: BOT_SYSTEM_PROMPT,
+          userPrompt,
+          temperature,
+          timeoutMs
+        }),
         signal: controller.signal
       });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = (await response.json()) as { content?: string };
+      return typeof data.content === "string" ? data.content : null;
+    } catch {
+      return null;
     } finally {
       window.clearTimeout(timeout);
     }
-  }
-
-  private async callGroq(request: BotDecisionRequest, fallback: BotDecisionResult) {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-    const model = import.meta.env.VITE_GROQ_MODEL ?? "llama-3.1-8b-instant";
-
-    if (!apiKey) {
-      return fallback;
-    }
-
-    const response = await this.fetchWithTimeout(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(
-        openAiCompatiblePayload(
-          model,
-          DIFFICULTY_CONFIG[request.difficulty].temperature,
-          buildBotUserPrompt({
-            ...request,
-            candidateMoves: request.candidateMoves,
-            forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-          })
-        )
-      )
-      },
-      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
-    );
-
-    if (!response.ok) {
-      return fallback;
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      return fallback;
-    }
-
-    const parsed = parseBotResponse(content, request.candidateMoves);
-    return parsed
-      ? {
-          ...parsed,
-          selectedMove: validateBotMove(
-            parsed.selectedMove,
-            request.candidateMoves,
-            DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-          ),
-          provider: "groq" as const,
-          usedFallback: false
-        }
-      : fallback;
-  }
-
-  private async callOpenRouter(request: BotDecisionRequest, fallback: BotDecisionResult) {
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-    const model = import.meta.env.VITE_OPENROUTER_MODEL ?? "openai/gpt-4o-mini";
-
-    if (!apiKey) {
-      return fallback;
-    }
-
-    const response = await this.fetchWithTimeout(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": window.location.origin,
-        "X-Title": "Wooden Chess"
-      },
-      body: JSON.stringify(
-        openAiCompatiblePayload(
-          model,
-          DIFFICULTY_CONFIG[request.difficulty].temperature,
-          buildBotUserPrompt({
-            ...request,
-            candidateMoves: request.candidateMoves,
-            forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-          })
-        )
-      )
-      },
-      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
-    );
-
-    if (!response.ok) {
-      return fallback;
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      return fallback;
-    }
-
-    const parsed = parseBotResponse(content, request.candidateMoves);
-    return parsed
-      ? {
-          ...parsed,
-          selectedMove: validateBotMove(
-            parsed.selectedMove,
-            request.candidateMoves,
-            DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-          ),
-          provider: "openrouter" as const,
-          usedFallback: false
-        }
-      : fallback;
-  }
-
-  private async callGemini(request: BotDecisionRequest, fallback: BotDecisionResult) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const model = import.meta.env.VITE_GEMINI_MODEL ?? "gemini-1.5-flash";
-
-    if (!apiKey) {
-      return fallback;
-    }
-
-    const response = await this.fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          generationConfig: {
-            temperature: DIFFICULTY_CONFIG[request.difficulty].temperature,
-            responseMimeType: "application/json"
-          },
-          systemInstruction: {
-            parts: [{ text: BOT_SYSTEM_PROMPT }]
-          },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: buildBotUserPrompt({
-                    ...request,
-                    forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-                  })
-                }
-              ]
-            }
-          ]
-        })
-      },
-      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
-    );
-
-    if (!response.ok) {
-      return fallback;
-    }
-
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) {
-      return fallback;
-    }
-
-    const parsed = parseBotResponse(content, request.candidateMoves);
-    return parsed
-      ? {
-          ...parsed,
-          selectedMove: validateBotMove(
-            parsed.selectedMove,
-            request.candidateMoves,
-            DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-          ),
-          provider: "gemini" as const,
-          usedFallback: false
-        }
-      : fallback;
-  }
-
-  private async callGroqCommentary(
-    request: BotDecisionRequest,
-    selectedMove: string,
-    actor: CommentaryActor
-  ) {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-    const model = import.meta.env.VITE_GROQ_MODEL ?? "llama-3.1-8b-instant";
-
-    if (!apiKey) {
-      return null;
-    }
-
-    const response = await this.fetchWithTimeout(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          temperature: DIFFICULTY_CONFIG[request.difficulty].temperature,
-          response_format: commentarySchema,
-          messages: [
-            { role: "system", content: BOT_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: buildBotCommentaryPrompt(
-                {
-                  ...request,
-                  forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-                },
-                selectedMove,
-                actor
-              )
-            }
-          ]
-        })
-      },
-      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
-    const parsed = content ? parseCommentaryResponse(content) : null;
-
-    return parsed
-      ? { ...parsed, provider: "groq" as const, usedFallback: false }
-      : null;
-  }
-
-  private async callOpenRouterCommentary(
-    request: BotDecisionRequest,
-    selectedMove: string,
-    actor: CommentaryActor
-  ) {
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-    const model = import.meta.env.VITE_OPENROUTER_MODEL ?? "openai/gpt-4.1";
-
-    if (!apiKey) {
-      return null;
-    }
-
-    const response = await this.fetchWithTimeout(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": window.location.origin,
-          "X-Title": "Wooden Chess"
-        },
-        body: JSON.stringify({
-          model,
-          temperature: DIFFICULTY_CONFIG[request.difficulty].temperature,
-          response_format: commentarySchema,
-          messages: [
-            { role: "system", content: BOT_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: buildBotCommentaryPrompt(
-                {
-                  ...request,
-                  forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-                },
-                selectedMove,
-                actor
-              )
-            }
-          ]
-        })
-      },
-      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
-    const parsed = content ? parseCommentaryResponse(content) : null;
-
-    return parsed
-      ? { ...parsed, provider: "openrouter" as const, usedFallback: false }
-      : null;
-  }
-
-  private async callGeminiCommentary(
-    request: BotDecisionRequest,
-    selectedMove: string,
-    actor: CommentaryActor
-  ) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const model = import.meta.env.VITE_GEMINI_MODEL ?? "gemini-1.5-flash";
-
-    if (!apiKey) {
-      return null;
-    }
-
-    const response = await this.fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          generationConfig: {
-            temperature: DIFFICULTY_CONFIG[request.difficulty].temperature,
-            responseMimeType: "application/json"
-          },
-          systemInstruction: {
-            parts: [{ text: BOT_SYSTEM_PROMPT }]
-          },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: buildBotCommentaryPrompt(
-                    {
-                      ...request,
-                      forceBestMove: DIFFICULTY_CONFIG[request.difficulty].forceBestMove
-                    },
-                    selectedMove,
-                    actor
-                  )
-                }
-              ]
-            }
-          ]
-        })
-      },
-      DIFFICULTY_CONFIG[request.difficulty].commentaryTimeoutMs
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    const parsed = content ? parseCommentaryResponse(content) : null;
-
-    return parsed
-      ? { ...parsed, provider: "gemini" as const, usedFallback: false }
-      : null;
   }
 }
