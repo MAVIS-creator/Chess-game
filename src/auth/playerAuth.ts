@@ -145,7 +145,7 @@ export const requestPlayerPasswordReset = async (email: string) => {
     throw new Error("Password recovery is unavailable right now.");
   }
   const address = email.trim().toLowerCase();
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(address) || address.endsWith("@players.cedar-chess.app")) {
+  if (!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(address) || address.endsWith("@players.cedar-chess.app")) {
     throw new Error("Enter a valid personal email address linked to your Cedar Chess account.");
   }
 
