@@ -135,3 +135,41 @@ export const onPlayerSessionChange = (
 
   return () => subscription.unsubscribe();
 };
+
+/**
+ * Password recovery is available only for accounts linked to an inbox the
+ * player controls. Legacy generated player-name emails cannot receive mail.
+ */
+export const requestPlayerPasswordReset = async (email: string) => {
+  if (!supabase) {
+    throw new Error("Password recovery is unavailable right now.");
+  }
+  const address = email.trim().toLowerCase();
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(address) || address.endsWith("@players.cedar-chess.app")) {
+    throw new Error("Enter a valid personal email address linked to your Cedar Chess account.");
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(address, {
+    redirectTo: `${window.location.origin}${window.location.pathname}?reset-password=1`
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+export const completePlayerPasswordReset = async (newPassword: string) => {
+  if (!supabase) {
+    throw new Error("Password recovery is unavailable right now.");
+  }
+  if (newPassword.length < 8) {
+    throw new Error("Choose a password with at least 8 characters.");
+  }
+  const { data, error: userError } = await supabase.auth.getUser();
+  if (userError || !data.user) {
+    throw new Error("This password reset link has expired. Request another link.");
+  }
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) {
+    throw new Error(error.message);
+  }
+};
