@@ -76,6 +76,40 @@ links return to the app. Keep email confirmation and secure email-change protect
 enabled. Password security settings are under Supabase Auth configuration; leaked
 password protection may depend on the Supabase plan.
 
+## Mobile landing, chess-piece navigation, and password recovery
+
+The mobile home/login screens use a normal scrolling layout. The brand, heading,
+legal opening demo, and sign-in/sign-up forms flow vertically rather than overlapping
+or being covered by a fixed bottom panel. Fields and labels use a high-contrast dark
+palette.
+
+The chess-piece navigation is available before and after sign-in:
+
+- **♚ Home** returns to the top-level page or the match menu.
+- **♞ About** opens an on-page description of the chess modes and engine.
+- **♜ Play** focuses access controls before sign-in, or starts a match after setup.
+- **♛ Contact** opens an on-page contact/feedback section with a link to GitHub Issues.
+- **♔ Access / Account** brings up sign-in controls or opens account settings.
+
+These are real, accessible buttons; touch users may also swipe horizontally across
+the navigation to switch to neighboring sections.
+
+The opening demo uses a persistent 64-square board. Legal chess.js moves animate
+the moving piece in its own layer rather than rebuilding the board, and the demo
+stops at the end of the opening instead of abruptly resetting the entire board.
+
+The login form has a **Forgot password?** link. It sends a Supabase Auth recovery
+email to the address associated with an account. The email link returns to
+`?reset-password=1`; only a Supabase `PASSWORD_RECOVERY` session event authorizes
+the new-password form. After a successful reset the user signs in again.
+Username-only legacy accounts with inaccessible generated email addresses cannot
+receive recovery emails until a personal email is securely linked.
+
+**Supabase configuration:** add the production Cedar Chess origin and its
+`?reset-password=1` URL to the Auth URL Configuration redirect allowlist. Verify
+the reset-password and change-email templates and SMTP delivery. The application
+does not change email provider settings or passwords on users' behalf.
+
 ## Security model
 
 ### Provider keys

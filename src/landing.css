@@ -410,3 +410,438 @@ body:not(.game-mode) {
     transition: none;
   }
 }
+
+
+/* Stable, independent piece layer: movement no longer repaints the chessboard. */
+.landing-demo-board {
+  isolation: isolate;
+}
+.landing-piece-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.landing-piece-layer .landing-piece {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 12.5%;
+  height: 12.5%;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  transform: none;
+  animation: none;
+  transition: left 640ms cubic-bezier(0.25, 0.85, 0.25, 1), top 640ms cubic-bezier(0.25, 0.85, 0.25, 1);
+  will-change: left, top;
+}
+.landing-demo-board .landing-square {
+  z-index: 1;
+}
+
+/* Piece navigation occupies real document space: it no longer floats
+   over or chops off the page heading. */
+.menu-shell[data-landing-enhanced="true"] {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: visible;
+  align-items: stretch;
+}
+.menu-shell[data-landing-enhanced="true"] > .menu-hero,
+.menu-shell[data-landing-enhanced="true"] > .menu-panel {
+  grid-row: 2;
+  min-height: calc(100dvh - 7rem);
+}
+.landing-piece-nav {
+  position: sticky;
+  top: max(0.5rem, env(safe-area-inset-top));
+  left: auto;
+  transform: none;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  width: max-content;
+  max-width: calc(100vw - 1rem);
+  flex-wrap: nowrap;
+  margin-inline: auto;
+  z-index: 40;
+  background: rgba(12, 22, 17, 0.96);
+}
+.landing-piece-nav button[aria-pressed="true"] {
+  color: #1c251d;
+  background: #e7c899;
+}
+.landing-piece-nav button[aria-pressed="true"]:hover {
+  color: #101713;
+  background: #f0dbb7;
+}
+
+/* Consistent, accessible contrast for login and sign-up. */
+.menu-shell[data-landing-enhanced="true"] .menu-panel {
+  background: rgba(18, 27, 22, 0.98);
+  color: #f9f1e3;
+  border-color: rgba(223, 192, 150, 0.22);
+}
+.menu-shell[data-landing-enhanced="true"] .menu-panel .hero-status,
+.menu-shell[data-landing-enhanced="true"] .menu-panel .select-block,
+.menu-shell[data-landing-enhanced="true"] .menu-panel .difficulty-note {
+  background: #202b24;
+  border-color: rgba(246, 225, 190, 0.17);
+  color: #f9f1e3;
+}
+.menu-shell[data-landing-enhanced="true"] .menu-panel .hero-label,
+.menu-shell[data-landing-enhanced="true"] .menu-panel .select-block span,
+.menu-shell[data-landing-enhanced="true"] .menu-panel .difficulty-note span,
+.menu-shell[data-landing-enhanced="true"] .menu-panel .hero-status p,
+.menu-shell[data-landing-enhanced="true"] .menu-panel .difficulty-note p,
+.menu-shell[data-landing-enhanced="true"] .menu-panel .account-note {
+  color: #dfd1bd;
+}
+.menu-shell[data-landing-enhanced="true"] .menu-panel strong {
+  color: #fff6e9;
+}
+.menu-shell[data-landing-enhanced="true"] .menu-panel .menu-input,
+.menu-shell[data-landing-enhanced="true"] .menu-panel select {
+  background: #101914;
+  border-color: rgba(235, 205, 168, 0.3);
+  color: #fff9ee;
+  width: 100%;
+}
+.menu-shell[data-landing-enhanced="true"] .menu-panel .menu-input::placeholder {
+  color: #c0c6b9;
+  opacity: 1;
+}
+.menu-shell[data-landing-enhanced="true"] .menu-panel input:focus-visible,
+.menu-shell[data-landing-enhanced="true"] .menu-panel select:focus-visible {
+  outline: 2px solid #e2bd83;
+  outline-offset: 2px;
+}
+.menu-shell[data-landing-enhanced="true"] .auth-switch-button:not(.is-active) {
+  background: #283229;
+  color: #f7ebda;
+  border: 1px solid rgba(235, 205, 168, 0.36);
+}
+.menu-shell[data-landing-enhanced="true"] .auth-switch-button.is-active {
+  background: linear-gradient(135deg, #f5dfb3, #d7a363);
+  color: #221609;
+}
+.menu-shell[data-landing-enhanced="true"] .start-button {
+  margin-top: 0.45rem;
+  color: #251608;
+  background: linear-gradient(135deg, #f5dfb3, #d7a363);
+}
+.menu-shell[data-landing-enhanced="true"] .menu-panel .account-link-button {
+  color: #f6e8d3;
+}
+
+/* Chess piece links open actual About and Contact sections in the page. */
+.landing-section-panel {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+  border: 1px solid rgba(235, 209, 171, 0.2);
+  border-radius: 1.5rem;
+  background: linear-gradient(145deg, #1b2921, #111913);
+  color: #f7ebd8;
+  scroll-margin-top: 5rem;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+}
+.landing-section-panel[hidden] {
+  display: none !important;
+}
+.landing-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.landing-section-header .eyebrow {
+  color: #e4c69e;
+  margin: 0;
+}
+.landing-section-header button {
+  appearance: none;
+  border: 1px solid rgba(255, 238, 217, 0.28);
+  border-radius: 999px;
+  background: #24352b;
+  color: #fff1dd;
+  font: inherit;
+  width: 2.6rem;
+  height: 2.6rem;
+  cursor: pointer;
+}
+.landing-section-panel h2 {
+  margin: 0.9rem 0 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1.12;
+}
+.landing-section-panel p {
+  max-width: 65ch;
+  color: #e5dccc;
+  line-height: 1.65;
+}
+.landing-section-points {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin: 1.3rem 0;
+}
+.landing-section-points > div {
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid rgba(235, 209, 171, 0.16);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #26372d;
+}
+.landing-section-points strong {
+  color: #f9e1b8;
+}
+.landing-section-points span {
+  color: #e0d8c9;
+}
+.landing-section-cta {
+  appearance: none;
+  display: inline-block;
+  border: 0;
+  border-radius: 0.85rem;
+  padding: 0.85rem 1.3rem;
+  background: linear-gradient(135deg, #f5dfb3, #d7a363);
+  color: #21160b;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.account-shell > .landing-piece-nav,
+.account-shell > .landing-section-panel {
+  grid-column: 1 / -1;
+}
+.account-shell > .landing-section-panel {
+  grid-row: auto;
+}
+.account-shell > .landing-piece-nav {
+  grid-row: 1;
+}
+.account-shell[data-landing-enhanced="account"] .menu-hero,
+.account-shell[data-landing-enhanced="account"] .menu-panel {
+  grid-row: 2;
+}
+
+@media (max-width: 640px) {
+  body:not(.game-mode) {
+    background: #0e1712;
+  }
+  .menu-shell[data-landing-enhanced="true"] {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: max(0.5rem, env(safe-area-inset-top)) 0 max(1.2rem, env(safe-area-inset-bottom));
+    overflow: visible;
+    min-height: 100dvh;
+  }
+  .landing-piece-nav {
+    position: sticky;
+    top: max(0.4rem, env(safe-area-inset-top));
+    order: -2;
+    display: flex;
+    justify-content: space-between;
+    width: calc(100% - 1rem);
+    max-width: 480px;
+    gap: 0.05rem;
+    border-radius: 1.1rem;
+    padding: 0.25rem;
+    margin: 0 auto 0.5rem;
+  }
+  .landing-piece-nav button {
+    min-width: 0;
+    flex: 1 1 0;
+    gap: 0.2rem;
+    padding: 0.45rem 0.15rem;
+    flex-direction: column;
+    border-radius: 0.8rem;
+  }
+  .landing-piece-nav button span {
+    font-size: 1.38rem;
+  }
+  .landing-piece-nav button small {
+    font-size: clamp(0.55rem, 2.1vw, 0.68rem);
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+  }
+  .menu-shell[data-landing-enhanced="true"] .menu-hero {
+    order: -1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0.65rem;
+    padding: 0.6rem 1rem 0.6rem;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+    background: #0e1712;
+  }
+  .menu-shell[data-landing-enhanced="true"] .menu-hero > :not(.landing-visual) {
+    position: static;
+    max-width: 100%;
+  }
+  .menu-shell[data-landing-enhanced="true"] .brand-mark {
+    order: 0;
+    align-self: stretch;
+    margin: 0;
+    gap: 0.7rem;
+  }
+  .menu-shell[data-landing-enhanced="true"] .brand-emblem {
+    width: 2.8rem;
+    height: 2.8rem;
+    padding: 0.45rem;
+    flex: 0 0 auto;
+  }
+  .menu-shell[data-landing-enhanced="true"] .brand-copy .eyebrow {
+    margin-bottom: 0.12rem;
+    color: #e4c69e;
+    font-size: 0.7rem;
+  }
+  .menu-shell[data-landing-enhanced="true"] .brand-copy strong {
+    font-size: clamp(1.15rem, 5vw, 1.6rem);
+    color: #fff2dc;
+    line-height: 1.2;
+  }
+  .menu-shell[data-landing-enhanced="true"] .menu-hero h1 {
+    order: 1;
+    position: static;
+    display: block;
+    inset: auto;
+    margin: 0.2rem 0 0;
+    padding: 0;
+    font-size: clamp(2rem, 8vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+    text-align: left;
+    color: #fff1d9;
+    text-shadow: none;
+    overflow-wrap: normal;
+  }
+  .menu-shell[data-landing-enhanced="true"] .menu-hero .lede {
+    order: 2;
+    display: block;
+    margin: 0;
+    max-width: 45ch;
+    font-size: 0.9rem;
+    line-height: 1.46;
+    color: #d9d9c8;
+  }
+  .menu-shell[data-landing-enhanced="true"] .menu-hero .menu-notes,
+  .menu-shell[data-landing-enhanced="true"] .menu-hero .hero-footnote {
+    display: none;
+  }
+  .menu-shell[data-landing-enhanced="true"] .landing-visual {
+    order: 3;
+    position: relative;
+    display: grid;
+    place-items: center;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    margin: 0.45rem auto 2.7rem;
+    padding: 0;
+    overflow: visible;
+  }
+  .menu-shell[data-landing-enhanced="true"] .landing-board-frame {
+    width: min(calc(100vw - 2rem), 460px);
+    max-width: 100%;
+    aspect-ratio: 1;
+    margin: 0 auto;
+    transform: none;
+    animation: none;
+  }
+  .menu-shell[data-landing-enhanced="true"] .landing-demo-board {
+    border: 7px solid #91613c;
+    border-radius: 1rem;
+  }
+  .landing-piece-layer .landing-piece {
+    font-size: clamp(1.5rem, 8.8vw, 2.95rem);
+    transform: none;
+  }
+  .menu-shell[data-landing-enhanced="true"] .landing-engine-badge {
+    right: 0.3rem;
+    bottom: -2.45rem;
+    font-size: 0.72rem;
+    transform: none;
+  }
+  .menu-shell[data-landing-enhanced="true"] .menu-panel {
+    position: relative;
+    order: 0;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    z-index: 1;
+    width: calc(100% - 2rem);
+    max-width: 540px;
+    min-height: 0;
+    max-height: none;
+    height: auto;
+    overflow: visible;
+    margin: 0 auto 1.2rem;
+    border: 1px solid rgba(223, 192, 150, 0.24);
+    border-radius: 1.4rem;
+    padding: 1rem;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25);
+    backdrop-filter: none;
+  }
+  .menu-shell[data-landing-enhanced="true"].auth-shell .menu-panel {
+    max-height: none;
+  }
+  .menu-shell[data-landing-enhanced="true"] .auth-panel {
+    justify-content: flex-start;
+  }
+  .menu-shell[data-landing-enhanced="true"] .menu-panel .hero-status {
+    padding: 0.9rem;
+  }
+  .menu-shell[data-landing-enhanced="true"] .auth-switch {
+    gap: 0.6rem;
+  }
+  .menu-shell[data-landing-enhanced="true"] .auth-switch-button {
+    min-height: 3rem;
+  }
+  .landing-section-panel,
+  .account-shell > .landing-section-panel {
+    order: 1;
+    width: calc(100% - 2rem);
+    margin: 0 auto 1.2rem;
+    padding: 1.15rem;
+    scroll-margin-top: 6.4rem;
+    border-radius: 1.15rem;
+  }
+  .landing-section-points {
+    grid-template-columns: 1fr;
+  }
+  .account-shell > .landing-piece-nav {
+    position: sticky;
+    width: calc(100% - 1rem);
+    margin-bottom: 0.5rem;
+  }
+  .account-shell[data-landing-enhanced="account"] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  .account-shell[data-landing-enhanced="account"] .menu-hero,
+  .account-shell[data-landing-enhanced="account"] .menu-panel {
+    width: calc(100% - 2rem);
+    margin: 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-piece-layer .landing-piece {
+    transition: none;
+  }
+  .landing-section-panel {
+    scroll-behavior: auto;
+  }
+}

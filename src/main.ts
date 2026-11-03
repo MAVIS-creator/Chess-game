@@ -2,6 +2,8 @@ import "./styles.css";
 import { changeAccountEmail, changeAccountPassword, getAccountDetails } from "./auth/accountSettings";
 import {
   getCurrentPlayer,
+  completePlayerPasswordReset,
+  requestPlayerPasswordReset,
   onPlayerSessionChange,
   signInPlayer,
   signOutPlayer,
@@ -50,6 +52,7 @@ let authListenerCleanup: (() => void) | null = null;
 let authMode: "login" | "signup" = "login";
 let authError = "";
 let authNotice = "";
+let passwordRecoveryAuthorized = false;
 
 const escapeHtml = (value: string) =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -108,6 +111,7 @@ const renderAuth = () => {
           <span>Password</span>
           <input id="auth-password" class="menu-input" type="password" autocomplete="${authMode === "signup" ? "new-password" : "current-password"}" minlength="${authMode === "signup" ? 8 : 6}" placeholder="Enter your password" />
         </label>
+        ${authMode === "login" ? '<button class="account-link-button auth-forgot-link" id="auth-forgot" type="button">Forgot password?</button>' : ""}
         ${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}
         ${authNotice ? `<p class="account-message is-success" role="status">${escapeHtml(authNotice)}</p>` : ""}
         <button class="start-button" id="auth-submit" type="button">${authMode === "login" ? "Enter game" : "Create account"}</button>
@@ -132,6 +136,8 @@ const renderAuth = () => {
       renderAuth();
     });
   }
+
+  document.querySelector<HTMLButtonElement>("#auth-forgot")?.addEventListener("click", renderForgotPassword);
 
   submitButton?.addEventListener("click", async () => {
     const username = nameInput?.value.trim() || "";
@@ -166,6 +172,133 @@ const renderAuth = () => {
     } catch (error) {
       authError = error instanceof Error ? error.message : "Authentication failed.";
       renderAuth();
+    }
+  });
+};
+
+const renderForgotPassword = () => {
+  activeSessionCleanup?.();
+  activeSessionCleanup = null;
+  document.body.classList.remove("game-mode");
+  app.innerHTML = `
+    <main class="menu-shell auth-shell recovery-shell">
+      <section class="menu-hero auth-hero">
+        <div class="brand-mark"><div class="brand-emblem" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+          <div class="brand-copy"><p class="eyebrow">Cedar Chess</p><strong>Password recovery</strong></div></div>
+        <h1>Recover your player account.</h1>
+        <p class="lede">We'll email you a secure link to set a new password. You must have access to your registered personal inbox.</p>
+      </section>
+      <aside class="menu-panel auth-panel recovery-panel">
+        <div class="hero-status">
+          <span class="hero-label">Forgot password?</span>
+          <strong>Reset it by email</strong>
+          <p>Enter the real email address linked to your account. A player name or placeholder email cannot receive a recovery message.</p>
+        </div>
+        <form id="forgot-password-form" class="account-form">
+          <label class="select-block"><span>Account email</span>
+            <input id="recovery-email" class="menu-input" type="email" maxlength="254" placeholder="you@example.com" autocomplete="email" required />
+          </label>
+          <p class="account-message" id="recovery-request-status" role="status" aria-live="polite"></p>
+          <button class="start-button" type="submit">Email me a reset link</button>
+        </form>
+        <p class="account-note">Existing name-only accounts without a verified personal email need account support to recover access.</p>
+        <button class="account-link-button" id="recovery-back" type="button">← Back to login</button>
+      </aside>
+    </main>
+  `;
+
+  document.querySelector<HTMLButtonElement>("#recovery-back")?.addEventListener("click", () => {
+    window.history.replaceState(null, "", window.location.pathname);
+    renderAuth();
+  });
+  document.querySelector<HTMLFormElement>("#forgot-password-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = document.querySelector<HTMLInputElement>("#recovery-email")?.value ?? "";
+    const status = document.querySelector<HTMLElement>("#recovery-request-status");
+    const button = document.querySelector<HTMLButtonElement>("#forgot-password-form button[type=submit]");
+    if (button) button.disabled = true;
+    if (status) {
+      status.textContent = "";
+      status.classList.remove("is-success");
+    }
+    try {
+      await requestPlayerPasswordReset(email);
+      if (status) {
+        status.textContent = "If this address belongs to a Cedar Chess account, a reset email will arrive shortly. Check your inbox and spam folder.";
+        status.classList.add("is-success");
+      }
+    } catch (error) {
+      if (status) status.textContent = error instanceof Error ? error.message : "Unable to request a reset link.";
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+};
+
+const renderPasswordRecovery = () => {
+  // Only PASSWORD_RECOVERY from Supabase Auth grants access to this screen.
+  // The query parameter by itself must never authorize a password change.
+  if (!passwordRecoveryAuthorized || !activePlayer) {
+    renderForgotPassword();
+    return;
+  }
+  activeSessionCleanup?.();
+  activeSessionCleanup = null;
+  document.body.classList.remove("game-mode");
+  app.innerHTML = `
+    <main class="menu-shell auth-shell recovery-shell">
+      <section class="menu-hero auth-hero">
+        <div class="brand-mark"><div class="brand-emblem" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+          <div class="brand-copy"><p class="eyebrow">Cedar Chess</p><strong>New password</strong></div></div>
+        <h1>Secure your next match.</h1>
+        <p class="lede">Your recovery link has been verified. Choose a fresh password for your Cedar Chess account.</p>
+      </section>
+      <aside class="menu-panel auth-panel recovery-panel">
+        <div class="hero-status">
+          <span class="hero-label">Verified recovery link</span>
+          <strong>Set a new password</strong>
+          <p>Use at least eight characters. You will sign in again with the new password afterwards.</p>
+        </div>
+        <form id="finish-recovery-form" class="account-form">
+          <label class="select-block"><span>New password</span>
+            <input id="recovery-new-password" class="menu-input" type="password" minlength="8" autocomplete="new-password" required />
+          </label>
+          <label class="select-block"><span>Confirm password</span>
+            <input id="recovery-confirm-password" class="menu-input" type="password" minlength="8" autocomplete="new-password" required />
+          </label>
+          <p class="account-message" id="recovery-finish-status" role="status" aria-live="polite"></p>
+          <button class="start-button" type="submit">Save new password</button>
+        </form>
+      </aside>
+    </main>
+  `;
+
+  document.querySelector<HTMLFormElement>("#finish-recovery-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!passwordRecoveryAuthorized) return;
+    const password = document.querySelector<HTMLInputElement>("#recovery-new-password")?.value ?? "";
+    const confirm = document.querySelector<HTMLInputElement>("#recovery-confirm-password")?.value ?? "";
+    const status = document.querySelector<HTMLElement>("#recovery-finish-status");
+    const button = document.querySelector<HTMLButtonElement>("#finish-recovery-form button[type=submit]");
+    if (password !== confirm) {
+      if (status) status.textContent = "Passwords must match.";
+      return;
+    }
+    if (button) button.disabled = true;
+    try {
+      await completePlayerPasswordReset(password);
+      passwordRecoveryAuthorized = false;
+      await signOutPlayer();
+      activePlayer = null;
+      playerName = "";
+      authMode = "login";
+      authError = "";
+      authNotice = "Password changed successfully. Sign in using your new password.";
+      window.history.replaceState(null, "", window.location.pathname);
+      renderAuth();
+    } catch (error) {
+      if (status) status.textContent = error instanceof Error ? error.message : "Password reset failed.";
+      if (button) button.disabled = false;
     }
   });
 };
@@ -779,10 +912,8 @@ const startGame = async () => {
 };
 
 const initApp = async () => {
-  activePlayer = await getCurrentPlayer();
-
   authListenerCleanup?.();
-  authListenerCleanup = onPlayerSessionChange((_event, session) => {
+  authListenerCleanup = onPlayerSessionChange((event, session) => {
     activePlayer = session?.user
       ? {
           id: session.user.id,
@@ -800,7 +931,24 @@ const initApp = async () => {
                 : "Player"
         }
       : null;
+
+    if (event === "PASSWORD_RECOVERY" && activePlayer) {
+      passwordRecoveryAuthorized = true;
+      renderPasswordRecovery();
+    }
   });
+
+  activePlayer = await getCurrentPlayer();
+
+  if (passwordRecoveryAuthorized) {
+    renderPasswordRecovery();
+    return;
+  }
+
+  if (searchParams.get("reset-password") === "1") {
+    renderForgotPassword();
+    return;
+  }
 
   if (searchParams.get("autostart") === "1" && activePlayer) {
     soundboard.prime();
