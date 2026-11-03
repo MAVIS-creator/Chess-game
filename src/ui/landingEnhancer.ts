@@ -1,5 +1,7 @@
 import { Chess, type Square } from "chess.js";
 import "../landing.css";
+import { isMobileChessDevice } from "./deviceLayout";
+import { LandingModelDemo } from "./landingModelDemo";
 
 const DEMO_MOVES = [
   ["e2", "e4"],
@@ -162,7 +164,7 @@ class LandingBoardDemo {
 }
 
 const appRoot = document.querySelector<HTMLElement>("#app");
-let activeDemo: LandingBoardDemo | null = null;
+let activeDemo: LandingBoardDemo | LandingModelDemo | null = null;
 
 type Destination = "home" | "about" | "play" | "contact" | "account";
 const TABS: ReadonlyArray<{ id: Destination; symbol: string; label: string }> = [
@@ -196,6 +198,8 @@ const enhanceLanding = () => {
 
   activeDemo?.dispose();
   activeDemo = null;
+  const compactDevice = isMobileChessDevice();
+  shell.classList.toggle("landing-compact", compactDevice);
   const isAuth = shell.classList.contains("auth-shell");
   const isRecovery = shell.classList.contains("recovery-shell");
   const isAccount = shell.classList.contains("account-shell");
@@ -331,12 +335,12 @@ const enhanceLanding = () => {
 
   const visual = document.createElement("div");
   visual.className = "landing-visual";
-  visual.setAttribute("aria-label", "Animated chess opening");
+  visual.setAttribute("aria-label", compactDevice ? "Flat chess opening animation" : "Real 3D wooden chess opening animation");
   visual.innerHTML = `
-    <div class="landing-board-frame">
+    <div class="landing-board-frame ${compactDevice ? "is-flat" : "is-model"}">
       <div class="landing-board-glow"></div>
-      <div class="landing-demo-board"></div>
-      <div class="landing-engine-badge"><span></span> Stockfish 19</div>
+      <div class="${compactDevice ? "landing-demo-board" : "landing-model-stage"}"></div>
+      <div class="landing-engine-badge"><span></span> Stockfish 19 · ${compactDevice ? "2D" : "3D model"}</div>
     </div>
   `;
   hero.prepend(visual);
@@ -346,9 +350,9 @@ const enhanceLanding = () => {
     heading.textContent = isAuth ? "Every move starts here." : "The board is yours.";
   }
 
-  const boardRoot = visual.querySelector<HTMLElement>(".landing-demo-board");
+  const boardRoot = visual.querySelector<HTMLElement>(compactDevice ? ".landing-demo-board" : ".landing-model-stage");
   if (boardRoot) {
-    activeDemo = new LandingBoardDemo(boardRoot);
+    activeDemo = compactDevice ? new LandingBoardDemo(boardRoot) : new LandingModelDemo(boardRoot);
   }
 };
 

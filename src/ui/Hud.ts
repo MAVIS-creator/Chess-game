@@ -30,6 +30,8 @@ export class Hud {
   private onReset: (() => void) | null = null;
   private onPromote: ((role: PieceRole) => void) | null = null;
   private onCycleCamera: (() => void) | null = null;
+  private onCameraView: ((view: "perspective" | "top-down") => void) | null = null;
+  private cameraView: "perspective" | "top-down" = "perspective";
   private onZoomIn: (() => void) | null = null;
   private onZoomOut: (() => void) | null = null;
   private onBackToMenu: (() => void) | null = null;
@@ -51,6 +53,10 @@ export class Hud {
 
   bindCycleCamera(handler: () => void) {
     this.onCycleCamera = handler;
+  }
+
+  bindCameraView(handler: (view: "perspective" | "top-down") => void) {
+    this.onCameraView = handler;
   }
 
   bindZoomIn(handler: () => void) {
@@ -186,10 +192,12 @@ export class Hud {
     `;
 
     const desktopControlsMarkup = `
-      <div class="action-strip desktop-actions">
+      <div class="action-strip desktop-actions desktop-actions-with-views">
         <button class="icon-button" type="button" data-action="zoom-out" aria-label="Zoom out">−</button>
         <button class="pill-button secondary" type="button" data-action="reset">Reset</button>
         <button class="icon-button" type="button" data-action="zoom-in" aria-label="Zoom in">+</button>
+        <button class="view-preset-button ${this.cameraView === "perspective" ? "is-active" : ""}" type="button" data-action="view-perspective" aria-pressed="${this.cameraView === "perspective"}" title="Locked 3D camera angle">3D View</button>
+        <button class="view-preset-button ${this.cameraView === "top-down" ? "is-active" : ""}" type="button" data-action="view-top-down" aria-pressed="${this.cameraView === "top-down"}" title="Locked overhead camera angle">Top View</button>
       </div>
     `;
 
@@ -197,7 +205,7 @@ export class Hud {
       <div class="action-strip compact-actions">
         <button class="icon-button" type="button" data-action="toggle-menu" aria-expanded="${this.menuOpen ? "true" : "false"}">☰</button>
         <button class="pill-button secondary" type="button" data-action="reset">Reset</button>
-        <button class="icon-button" type="button" data-action="cycle-camera" aria-label="Switch camera view">📷</button>
+        <button class="icon-button" type="button" data-action="cycle-camera" aria-label="Flip the flat board">📷</button>
       </div>
     `;
 
@@ -277,6 +285,17 @@ export class Hud {
 
     if (target.dataset.action === "cycle-camera") {
       this.onCycleCamera?.();
+      return;
+    }
+
+    if (target.dataset.action === "view-perspective" || target.dataset.action === "view-top-down") {
+      this.cameraView = target.dataset.action === "view-top-down" ? "top-down" : "perspective";
+      this.onCameraView?.(this.cameraView);
+      for (const button of this.root.querySelectorAll<HTMLButtonElement>(".view-preset-button")) {
+        const active = button.dataset.action === `view-${this.cameraView}`;
+        button.setAttribute("aria-pressed", String(active));
+        button.classList.toggle("is-active", active);
+      }
       return;
     }
 

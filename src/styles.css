@@ -1612,3 +1612,44 @@ h1 {
     padding: 1rem;
   }
 }
+
+
+/* The 3D camera is locked. These intentional presets never use orbit gestures. */
+.desktop-actions-with-views {
+  grid-template-columns: 3rem minmax(6rem, 1fr) 3rem auto auto;
+  width: min(38rem, calc(100vw - 2rem));
+  gap: 0.4rem;
+}
+.view-preset-button {
+  appearance: none;
+  border: 1px solid rgba(255, 217, 166, 0.25);
+  border-radius: 999px;
+  background: #1e2c23;
+  color: #f6e9d5;
+  padding: 0.6rem 0.9rem;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.view-preset-button.is-active,
+.view-preset-button[aria-pressed="true"] {
+  border-color: transparent;
+  color: #251608;
+  background: #eac48f;
+}
+.view-preset-button:focus-visible {
+  outline: 2px solid #eac48f;
+  outline-offset: 2px;
+}
+@media (max-width: 850px) {
+  .desktop-actions-with-views {
+    width: min(34rem, calc(100vw - 1rem));
+    grid-template-columns: 2.5rem minmax(5rem, 1fr) 2.5rem auto auto;
+  }
+  .desktop-actions-with-views .view-preset-button {
+    padding: 0.45rem 0.55rem;
+    font-size: 0.75rem;
+  }
+}

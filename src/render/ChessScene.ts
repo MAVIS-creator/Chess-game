@@ -2,12 +2,13 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { INITIAL_PIECES } from "../game/setup";
+import { isMobileChessDevice } from "../ui/deviceLayout";
 import type { GamePieceState, MoveSummary, PieceRole, SquareId } from "../game/types";
 import { ALL_SQUARES, BOARD_SURFACE_Y, SQUARE_SIZE, getSquarePosition } from "./boardLayout";
 import { buildModelRegistry, getTemplateKey, type ModelRegistry, type PieceView } from "./modelRegistry";
 
 const ASSET_PATH = "/wooden_chess_set.glb";
-type CameraPreset = "perspective" | "top-down" | "close-up";
+export type CameraPreset = "perspective" | "top-down";
 
 interface PieceAnimation {
   pieceId: string;
@@ -31,17 +32,18 @@ export class ChessScene {
   private readonly pointer = new THREE.Vector2();
   private readonly animations = new Map<string, PieceAnimation>();
   private frameHandle = 0;
+  private disposed = false;
   private registry: ModelRegistry | null = null;
   private onSquareSelect: ((square: SquareId) => void) | null = null;
   private activeCameraPreset: CameraPreset = "perspective";
 
-  constructor(private readonly mount: HTMLElement) {
+  constructor(private readonly mount: HTMLElement, private readonly options: { preview?: boolean } = {}) {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color("#100d0a");
     this.scene.fog = new THREE.Fog("#100d0a", 1.2, 3.6);
 
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-    this.camera.position.set(-0.42, 0.34, 0);
+    this.camera.position.set(-0.34, 0.37, 0.14);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -53,23 +55,31 @@ export class ChessScene {
     this.mount.appendChild(this.renderer.domElement);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    // Chess clocks keep ticking. Do not allow mouse/touch drags or scroll
+    // gestures to rotate, pan, or wobble the camera during a match.
+    this.controls.enabled = false;
+    this.controls.enableRotate = false;
+    this.controls.enableZoom = false;
     this.controls.enablePan = false;
-    this.controls.enableDamping = true;
+    this.controls.enableDamping = false;
     this.controls.minDistance = 0.38;
-    this.controls.maxDistance = 0.85;
-    this.controls.minPolarAngle = 0.7;
-    this.controls.maxPolarAngle = 1.42;
+    this.controls.maxDistance = 0.88;
     this.controls.target.set(0, 0.02, 0);
 
     this.addLights();
     this.addSquareTargets();
     this.handleResize();
-    this.renderer.domElement.addEventListener("pointerdown", this.handlePointerDown);
+    if (!this.options.preview) {
+      this.renderer.domElement.addEventListener("pointerdown", this.handlePointerDown);
+    }
     window.addEventListener("resize", this.handleResize);
   }
 
   async loadScene() {
     const gltf = await this.loader.loadAsync(ASSET_PATH);
+    if (this.disposed) {
+      return { pieceCount: 0, squareCount: 0 };
+    }
     gltf.scene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
@@ -92,14 +102,15 @@ export class ChessScene {
     this.onSquareSelect = handler;
   }
 
-  cycleCameraPreset(lastMove: MoveSummary | null) {
-    this.activeCameraPreset =
-      this.activeCameraPreset === "perspective"
-        ? "top-down"
-        : this.activeCameraPreset === "top-down"
-          ? "close-up"
-          : "perspective";
-    this.applyCameraPreset(this.activeCameraPreset, lastMove);
+  // Only these two intentional viewpoints are possible. Neither view
+  // ever follows a move or changes unexpectedly on resize.
+  setCameraPreset(preset: CameraPreset) {
+    this.activeCameraPreset = preset;
+    this.applyCameraPreset(preset);
+  }
+
+  cycleCameraPreset(_lastMove: MoveSummary | null) {
+    this.setCameraPreset(this.activeCameraPreset === "perspective" ? "top-down" : "perspective");
   }
 
   zoomIn() {
@@ -268,12 +279,16 @@ export class ChessScene {
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     cancelAnimationFrame(this.frameHandle);
     this.controls.dispose();
     this.renderer.domElement.removeEventListener("pointerdown", this.handlePointerDown);
     this.renderer.dispose();
     window.removeEventListener("resize", this.handleResize);
-    this.mount.removeChild(this.renderer.domElement);
+    if (this.renderer.domElement.parentElement === this.mount) {
+      this.mount.removeChild(this.renderer.domElement);
+    }
   }
 
   private addLights() {
@@ -377,44 +392,14 @@ export class ChessScene {
   }
 
   private handleResize = () => {
-    const { clientWidth, clientHeight } = this.mount;
-    const isPhone = clientWidth <= 640;
-    const isSmallViewport = clientWidth <= 1100;
-    const shouldForceFlatPreset = isPhone && this.activeCameraPreset === "perspective";
+    const width = Math.max(1, this.mount.clientWidth);
+    const height = Math.max(1, this.mount.clientHeight);
 
-    if (isPhone) {
-      this.camera.fov = 50;
-      this.controls.minDistance = 0.38;
-      this.controls.maxDistance = 0.78;
-      this.controls.minPolarAngle = 0.82;
-      this.controls.maxPolarAngle = 1.3;
-      this.controls.target.set(0, 0.015, 0);
-    } else if (isSmallViewport) {
-      this.camera.fov = 47;
-      this.controls.minDistance = 0.42;
-      this.controls.maxDistance = 0.88;
-      this.controls.minPolarAngle = 0.76;
-      this.controls.maxPolarAngle = 1.38;
-      this.controls.target.set(0, 0.018, 0);
-    } else {
-      this.camera.fov = 45;
-      this.controls.minDistance = 0.38;
-      this.controls.maxDistance = 0.85;
-      this.controls.minPolarAngle = 0.7;
-      this.controls.maxPolarAngle = 1.42;
-      this.controls.target.set(0, 0.02, 0);
-    }
-
-    this.camera.aspect = clientWidth / clientHeight;
+    this.camera.fov = this.options.preview ? 42 : isMobileChessDevice() ? 48 : 45;
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(clientWidth, clientHeight);
-    if (shouldForceFlatPreset) {
-      this.activeCameraPreset = "top-down";
-    } else if (!isPhone && this.activeCameraPreset === "top-down") {
-      this.activeCameraPreset = "perspective";
-    }
-    this.applyCameraPreset(this.activeCameraPreset, null);
-    this.controls.update();
+    this.renderer.setSize(width, height, false);
+    this.applyCameraPreset(this.activeCameraPreset);
   };
 
   private handlePointerDown = (event: PointerEvent) => {
@@ -433,6 +418,7 @@ export class ChessScene {
 
   private start() {
     const render = () => {
+      if (this.disposed) return;
       const delta = this.clock.getDelta();
       this.controls.update();
       this.updateAnimations(delta);
@@ -510,30 +496,23 @@ export class ChessScene {
     return new THREE.Vector3(x, baseY, z);
   }
 
-  private applyCameraPreset(preset: CameraPreset, lastMove: MoveSummary | null) {
-    const isPhone = this.mount.clientWidth <= 640;
+  private applyCameraPreset(preset: CameraPreset) {
+    this.controls.target.set(0, 0.02, 0);
 
     if (preset === "top-down") {
-      this.controls.target.set(0, 0.018, 0);
-      this.camera.position.set(0, isPhone ? 0.58 : 0.66, 0.001);
-      this.camera.lookAt(this.controls.target);
-      return;
+      // Camera forward points almost straight down. Explicit +X as screen-up
+      // prevents the near-vertical lookAt() roll singularity and puts Black at
+      // the top, White at the bottom.
+      this.camera.up.set(1, 0, 0);
+      this.camera.position.set(0, 0.63, 0.001);
+    } else {
+      this.camera.up.set(0, 1, 0);
+      // White is on the near edge. A medium-high 3/4 viewpoint keeps
+      // every file and both back ranks visible without constant orbiting.
+      this.camera.position.set(-0.34, 0.37, 0.14);
     }
 
-    if (preset === "close-up" && lastMove) {
-      const focus = getSquarePosition(lastMove.to);
-      this.controls.target.set(focus.x, 0.022, focus.z);
-      this.camera.position.set(focus.x - 0.18, isPhone ? 0.2 : 0.24, focus.z + 0.12);
-      this.camera.lookAt(this.controls.target);
-      return;
-    }
-
-    this.controls.target.set(0, isPhone ? 0.015 : 0.02, 0);
-    this.camera.position.set(
-      isPhone ? -0.4 : -0.42,
-      isPhone ? 0.31 : 0.34,
-      isPhone ? 0.04 : 0.02
-    );
     this.camera.lookAt(this.controls.target);
+    this.camera.updateProjectionMatrix();
   }
 }

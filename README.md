@@ -27,6 +27,29 @@ The GCP engine is preferred because it can use the stronger hosted Stockfish ser
 
 The fallback is generated from the pinned `stockfish@19.0.1` npm package during local development and production builds.
 
+## Device-aware chessboard and fixed 3D camera
+
+- **Phones:** Cedar Chess uses the fast flat 2D board on the landing page and
+  throughout a match. A phone requesting the browser's **Desktop site** mode
+  still uses 2D chess and a vertically stacked layout; a wider fake viewport
+  must not force it into a cramped pair of desktop columns.
+- **Desktop/laptop:** The landing page uses the actual
+  `public/wooden_chess_set.glb` wooden chess set via the same Three.js
+  `ChessScene` renderer used for live games. This is not a CSS-transformed
+  flat-board imitation. Opening moves are legal, validated by the same
+  `ChessController`, and animate individual GLB chess pieces.
+- **Camera stability:** Desktop games start at a fixed medium-high 3/4 perspective
+  aimed at the full board. Orbit rotation, pan, mouse-wheel zoom, and camera
+  damping are disabled during play so mouse/touch gestures cannot destabilize
+  the angle while the clock runs. Use the explicit **3D View / Top View**
+  buttons to choose between two locked perspectives. The existing zoom
+  buttons remain available for deliberate framing changes.
+- **Performance:** No WebGL scene is mounted on phones; the landing animation
+  stops after its opening sequence instead of resetting or flashing the board.
+  On changing screens, the GLB renderer and animation loop are disposed.
+- **Accessibility:** Login and signup remain part of normal page flow, with
+  readable contrast and no fixed bottom overlay hiding form controls.
+
 ## Difficulty ladder
 
 - `Easy` — forgiving and light pressure.
