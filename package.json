@@ -4,14 +4,17 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "prepare:stockfish": "node scripts/sync-stockfish.mjs",
+    "predev": "npm run prepare:stockfish",
     "dev": "vite",
+    "prebuild": "npm run prepare:stockfish",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
     "chess.js": "^1.4.0",
-    "stockfish": "^18.0.7",
+    "stockfish": "19.0.1",
     "three": "^0.180.0"
   },
   "devDependencies": {
