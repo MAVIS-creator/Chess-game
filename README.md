@@ -50,6 +50,36 @@ The fallback is generated from the pinned `stockfish@19.0.1` npm package during 
 - **Accessibility:** Login and signup remain part of normal page flow, with
   readable contrast and no fixed bottom overlay hiding form controls.
 
+## Impossible: deeper tactical and mating search
+
+Impossible always requests a **single principal variation** (MultiPV 1), and
+the decision layer is forced to take the engine's highest-ranked candidate,
+rather than a random lower-ranked move or an LLM-selected alternative.
+
+To make it stronger while preserving the live clock:
+
+- Increase the requested engine depth cap from **30 to 36** (the engine may
+  reach a lower actual depth within its time budget).
+- Increase main engine thinking time from **2.4 to 4.5 seconds**, with up to
+  **6.4 seconds** allowed for request and engine overhead.
+- Extend the opportunistic mating search from **mate 9 to mate 10** (plus
+  bounded adaptive extension), with a **1.5-second** probe budget.
+- If that preliminary mate probe fails or times out, the normal strongest-move
+  search still runs. An unsuccessful mate probe must never forfeit an AI turn.
+- Preserve GCP-first analysis and local Stockfish 19 Lite fallback, and keep
+  the engine-source badge showing which backend answered the actual move.
+
+These numbers are *search limits*, not guaranteed analyzed depth or a promise
+to find every mate in 10 moves. Stockfish calculates the full set of legal
+chess moves in each position and already handles the short opening mates
+(Fool's Mate, Scholar's Mate, five-move variants), as well as forks, pins,
+skewers, discovered checks, mating nets, and endgames. A hard-coded list
+of traps would make Impossible more predictable rather than stronger.
+
+The AI's move budget is finite and the default Impossible clock is 20 seconds
+per side per turn, so Impossible is intentionally extremely challenging but
+**not mathematically unbeatable**.
+
 ## Difficulty ladder
 
 - `Easy` — forgiving and light pressure.

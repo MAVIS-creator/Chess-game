@@ -15,7 +15,7 @@ import {
   type BotDifficulty,
   type BotPersonalityProfile
 } from "../ai/botPersonality";
-import { StockfishEngine } from "../engine/stockfish";
+import { StockfishEngine, type EngineAnalysisResult } from "../engine/stockfish";
 import type { PieceColor } from "./types";
 import { ChessController } from "./ChessController";
 
@@ -25,7 +25,7 @@ const MATE_SCAN_BY_DIFFICULTY: Record<BotDifficulty, number | null> = {
   Hard: 3,
   "Boss Mode": 5,
   "Nightmare Mode": 7,
-  Impossible: 9
+  Impossible: 10
 };
 
 export interface BotRuntimeState {
@@ -256,16 +256,22 @@ export class AiMoveController {
       }
       const mateScanDepth = MATE_SCAN_BY_DIFFICULTY[this.difficulty];
       if (mateScanDepth && DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs > 0) {
-        const mateScan = await this.engine.analyzePosition({
-          fen: this.controller.getFen(),
-          depth: DIFFICULTY_CONFIG[this.difficulty].depth,
-          multiPv: 1,
-          mate: mateScanDepth + adaptivePlan.extraMateDepth,
-          timeoutMs: DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs
-        });
+        let mateScan: EngineAnalysisResult | null = null;
+        try {
+          mateScan = await this.engine.analyzePosition({
+            fen: this.controller.getFen(),
+            depth: DIFFICULTY_CONFIG[this.difficulty].depth,
+            multiPv: 1,
+            mate: mateScanDepth + adaptivePlan.extraMateDepth,
+            timeoutMs: DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs
+          });
+        } catch {
+          // The mate probe is opportunistic. If cloud and local engines both
+          // fail or time out, still attempt the normal strongest-move search.
+        }
 
-        const matingMove = mateScan.candidates[0];
-        if (matingMove?.mateIn !== null && matingMove.mateIn > 0) {
+        const matingMove = mateScan?.candidates[0];
+        if (mateScan && matingMove && typeof matingMove.mateIn === "number" && matingMove.mateIn > 0) {
           if (!this.canProceed()) {
             return false;
           }
