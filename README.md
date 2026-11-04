@@ -70,14 +70,24 @@ Its adaptive layer now budgets analysis according to:
 - The existing adaptive player-history factors, which modestly adjust
   the engine's base thinking time.
 
-The main GCP analysis endpoint currently allows up to **6 seconds** of
-search per request. This is a technical bound, *not* 15 minutes of
-computation per move. The browser WASM fallback is also time-bounded.
-Impossible therefore generally spends about 5–6 seconds early in the
-game, can spend less on quieter positions or when time is running low,
-and keeps its best-ranked, single-PV Stockfish move without an LLM
-overriding it. Optional mate probing is skipped when the bot has very
-little time left. The HUD updates the engine source after each move.
+The GCP backend allows up to **15 seconds** of analysis by default.
+Cedar Chess's authenticated Vercel engine proxy is now configured to
+pass up to **12 seconds per search request**, with 15.5 seconds allowed
+for network overhead and a 20-second function duration cap. The local
+Stockfish 19 Lite WASM engine is similarly bounded at 12 seconds.
+These remain *per-move search limits*, not 15 minutes of computation
+for every move.
+
+At the start of a 15+0 game Impossible typically budgets **9 seconds**
+for quiet positions and **12 seconds** for tactically forcing ones.
+It cuts that budget as its remaining 15-minute clock runs low. It
+retains the best-ranked, single-PV Stockfish move; an LLM cannot
+overrule the engine. Optional mate probes are skipped at low time.
+The match HUD identifies which engine answered each AI move.
+
+Longer GCP searches use additional Cloud Run CPU time and may increase
+running costs. If the GCP server fails or times out, the browser
+fallback can take additional time from the bot's same 15-minute clock.
 
 The AI commentary providers explain the moves and may inform the time
 allocation policy, but an LLM is not a replacement for Stockfish's
@@ -102,8 +112,9 @@ To make it stronger while preserving the live clock:
 
 - Increase the requested engine depth cap from **30 to 36** (the engine may
   reach a lower actual depth within its time budget).
-- Increase main engine thinking time from **2.4 to 4.5 seconds**, with up to
-  **6.4 seconds** allowed for request and engine overhead.
+- Initially raised the engine budget from 2.4 to 4.5 seconds, and then
+  expanded the 15+0 mode's dynamic search window up to **9–12 seconds**,
+  with bounded transport overhead.
 - Extend the opportunistic mating search from **mate 9 to mate 10** (plus
   bounded adaptive extension), with a **1.5-second** probe budget.
 - If that preliminary mate probe fails or times out, the normal strongest-move
