@@ -546,7 +546,7 @@ const difficultyDescription = (difficulty: BotDifficulty) => {
     case "Nightmare Mode":
       return "Extremely hard with heavy tactical pressure.";
     case "Impossible":
-      return "Final boss chess. The AI starts as White, you defend as Black, and both clocks are brutal.";
+      return "Final boss chess. The AI starts as White; both sides have a full 15-minute rapid clock.";
   }
 };
 
