@@ -364,6 +364,48 @@ The production build performs the same Stockfish 19 asset sync before TypeScript
 Security headers are defined in `vercel.json`, including CSP, clickjacking protection, content-type hardening, restricted browser permissions, and no-store behavior for API responses.
 
 
+## Connected GCP Syzygy and shared-opponent learning
+
+Cedar Chess can now consult the **exact Syzygy tablebase** already used by
+the separate authenticated GCP chess backend. For standard positions with
+seven or fewer pieces, the browser asks its authenticated Vercel engine proxy
+to request `POST /api/tablebase` on GCP. When the lookup is exact and its
+suggested UCI move passes a local chess.js legality check, that move
+**takes precedence over heuristic Stockfish** because the endgame result
+is solved, not estimated. The HUD shows `GCP · Syzygy Exact`.
+
+If the backend has not yet deployed the tablebase route, the tablebase
+provider is unavailable, or the result is unverified, Cedar seamlessly
+continues with ordinary GCP Stockfish 19 and browser WASM fallback.
+
+**Deployment order:** merge/deploy `MAVIS-creator/chess-mcp`'s tablebase
+route before testing the Cedar frontend. It uses the existing Bearer
+`MCP_AUTH_TOKEN` on the server and the existing authenticated
+`/api/engine` proxy; no secrets or new `VITE_` variables are needed.
+
+For learning across opponents, completed matches now optionally save up
+to eight opening half-moves (UCI) beside the existing **player-owned**
+`cedar_match_history` row. A restricted database trigger aggregates
+four-, six- and eight-ply opening prefixes across accounts. Each account
+counts at most once per opening prefix. The public aggregate can be read
+by authenticated players only **after five distinct accounts** have
+contributed to that prefix. No other player's identity or raw games
+become accessible.
+
+Impossible consults those anonymous aggregate statistics without blocking
+the move. If a frequently seen opening has historically led to
+human wins, the bot can add up to 20% to its bounded *search-time budget*.
+**Stockfish still decides the move**; the learned statistics never
+override objective evaluation. Shared statistics begin accumulating only
+for newly completed games, so old match history without stored opening
+moves cannot be reconstructed into the new aggregate.
+
+The current GCP Cloud Run deployment template requests 2 vCPUs, 2 GiB
+RAM, concurrency 1 and min instances 0. Under request-based billing,
+the illustrative base compute cost is about $0.000477 for 9 s and
+$0.000636 for 12 s, before free credits, cold starts and other costs.
+An optional mate scan and tablebase lookup are separate requests.
+
 ## Which Stockfish engine answered a move?
 
 The live gameplay HUD now identifies the **actual engine behind the last
