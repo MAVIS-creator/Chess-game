@@ -422,37 +422,24 @@ No font fallback, remote sprite, or additional download is required.
 - The 2D board is centered in the available vertical space above the
   bottom controls rather than leaving a disproportionately large gap
   under the board on tall phones.
-- The **mobile** HUD now places **Last AI move** in a second permanent
-  row showing `GCP · Stockfish 19`, `Local · Stockfish 19` or
-  `GCP · Syzygy Exact`. Until the first AI move it shows
-  `Engine · Waiting`. This fixes the previous bug where desktop
-  showed the source twice and mobile omitted it entirely.
+- Engine provider labels are hidden from the match interface on both
+  mobile and desktop to keep the screen focused on the clock and board.
+  The engine source is still tracked internally for troubleshooting.
 - An exact Syzygy result is only possible when the position contains
   **seven or fewer total chess pieces** and the authenticated GCP
   tablebase route responds. Normal opening positions always use Stockfish.
 
-## Which Stockfish engine answered a move?
+## Engine routing without on-screen labels
 
-The live gameplay HUD now identifies the **actual engine behind the last
-completed AI move**:
+The game still records internally whether the most recent bot move came
+from GCP Stockfish 19, the local Stockfish 19 Lite WASM fallback, or
+an exact GCP Syzygy tablebase. The HUD deliberately **does not show**
+engine-provider badges, per player preference.
 
-- `GCP · Stockfish 19`: the Google Cloud Run analysis request succeeded.
-- `Local · Stockfish 19`: the remote request failed, timed out, or could
-  not be authenticated, so the browser's Stockfish 19 Lite WASM worker
-  answered that move instead.
-- `Engine · Waiting`: no computer move has been completed yet.
-
-This indicator is shown in both desktop and mobile match HUDs, and updates
-after each AI move. It is not the AI-commentary provider: the earlier
-`stockfish` vs `llm` source refers to the move/commentary decision layer,
-not the engine's execution location.
-
-Both backends analyze standard legal chess moves, including castling,
-en passant, captures and pawn promotion. `MultiPV` is configured per
-difficulty to request **one through five candidate lines**. That number
-is not a restriction on what kinds of chess moves the fallback knows.
-The local build is Stockfish 19 Lite Single (WASM), so its practical search
-strength and latency may differ from the remote GCP instance.
+The established GCP-first, browser-fallback, exact seven-piece Syzygy
+routing remains unchanged. Both engines support legal chess moves,
+including castling, en passant and promotions. MultiPV requests one
+through five candidate lines depending on the difficulty.
 
 ## Stockfish licensing
 
