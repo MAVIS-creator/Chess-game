@@ -17,7 +17,8 @@ export const planImpossibleSearch = (
   fen: string,
   remainingMs: number,
   moveCount: number,
-  adaptiveBaseTimeMs: number
+  adaptiveBaseTimeMs: number,
+  sharedOpeningPressure = 0
 ): ImpossibleSearchBudget => {
   const position = new Chess(fen);
   const moves = position.moves({ verbose: true });
@@ -33,7 +34,9 @@ export const planImpossibleSearch = (
   const fairShareMs = Math.max(0, (remainingMs - reserveMs) / expectedTurnsLeft);
 
   // More time for tactical positions; quiet moves also get a healthy budget.
-  const desiredMs = adaptiveBaseTimeMs * (hasForcingMoves ? 2 : 1.5);
+  // Shared outcomes (5+ distinct players) may add at most 20% thinking time.
+  // They never influence which move the engine chooses.
+  const desiredMs = adaptiveBaseTimeMs * (hasForcingMoves ? 2 : 1.5) * (1 + Math.max(0, Math.min(0.2, sharedOpeningPressure)));
   const availableMs = Math.max(150, remainingMs - 600);
   const moveTimeMs = Math.max(
     150,
