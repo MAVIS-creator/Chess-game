@@ -235,7 +235,8 @@ export class AiMoveController {
       difficulty: this.difficulty,
       result,
       moveCount,
-      statusText
+      statusText,
+      openingUci: this.controller.getMoveHistoryUci().slice(0, 8)
     });
   }
 
