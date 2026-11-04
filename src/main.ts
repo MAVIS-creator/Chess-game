@@ -373,6 +373,11 @@ const renderMenu = () => {
           <strong>${selectedDifficulty}</strong>
           <p>${difficultyDescription(selectedDifficulty)}</p>
         </div>
+        <div class="hero-status compact">
+          <span class="hero-label">Game clock · 15+0 rapid</span>
+          <strong>15:00 per player, for the whole game</strong>
+          <p>Each clock counts down only while that side is to move. No reset after each move and no increment.</p>
+        </div>
         <button class="start-button" id="start-match" type="button">Start game</button>
         <button class="account-link-button" id="open-account-settings" type="button">♔ Account settings · Change email or password</button>
       </aside>
@@ -679,17 +684,15 @@ const startGame = async () => {
     const delta = now - lastTickAt;
     lastTickAt = now;
 
-    if (!timedOutSide && snapshot.currentTurn !== activeTurnColor) {
-      activeTurnColor = snapshot.currentTurn;
-      remainingMs.white = baseClockMs;
-      remainingMs.black = baseClockMs;
-    }
-
-    if (!snapshot.gameOver && !timedOutSide && !snapshot.pendingPromotion) {
-      const activeColor = snapshot.currentTurn;
-      remainingMs[activeColor] = Math.max(0, remainingMs[activeColor] - delta);
-      if (remainingMs[activeColor] <= 0) {
-        timedOutSide = activeColor;
+    // Chess rapid 15+0: the clock is a full-game budget, never reset on a
+    // move. Charge elapsed time to the previous active side before switching.
+    // A pending promotion is still that player's turn, so its clock runs.
+    if (!snapshot.gameOver && !timedOutSide) {
+      remainingMs[activeTurnColor] = Math.max(0, remainingMs[activeTurnColor] - Math.max(0, delta));
+      if (remainingMs[activeTurnColor] <= 0) {
+        timedOutSide = activeTurnColor;
+      } else if (snapshot.currentTurn !== activeTurnColor) {
+        activeTurnColor = snapshot.currentTurn;
       }
     }
 
