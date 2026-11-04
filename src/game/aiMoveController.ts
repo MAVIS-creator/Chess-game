@@ -8,6 +8,7 @@ import {
 } from "../ai/adaptiveProfile";
 import { BotDecisionLayer, type BotDecisionResult } from "../ai/botDecisionLayer";
 import { planImpossibleSearch } from "../ai/impossibleTimeManagement";
+import { loadSharedOpeningPressure } from "../ai/sharedOpeningLearning";
 import {
   BOT_PERSONALITIES,
   DIFFICULTY_CONFIG,
@@ -39,7 +40,7 @@ export interface BotRuntimeState {
   thinkingStage: string | null;
   lastStyle: string;
   source: "stockfish" | "llm";
-  engineSource: "gcp-stockfish-19" | "local-stockfish-19" | null;
+  engineSource: "gcp-stockfish-19" | "local-stockfish-19" | "gcp-syzygy" | null;
   playerName: string;
   playerColor: PieceColor;
   botColor: PieceColor;
@@ -60,7 +61,7 @@ export class AiMoveController {
   private commentary = "The board is waiting.";
   private lastStyle = "opening";
   private source: "stockfish" | "llm" = "stockfish";
-  private engineSource: "gcp-stockfish-19" | "local-stockfish-19" | null = null;
+  private engineSource: "gcp-stockfish-19" | "local-stockfish-19" | "gcp-syzygy" | null = null;
   private playerName = "Guest";
   private playerId: string | null = null;
   private playerTimeMs = 0;
@@ -70,6 +71,8 @@ export class AiMoveController {
   private stateListener: (() => void) | null = null;
   private adaptiveProfile = loadAdaptiveProfile();
   private recordedGameSignature: string | null = null;
+  private openingInsightKey: string | null = null;
+  private sharedOpeningPressure = 0;
 
   constructor(
     private readonly controller: ChessController,
@@ -211,6 +214,8 @@ export class AiMoveController {
     this.thinking = false;
     this.thinkingStage = null;
     this.recordedGameSignature = null;
+    this.openingInsightKey = null;
+    this.sharedOpeningPressure = 0;
     this.notify();
   }
 
@@ -235,7 +240,8 @@ export class AiMoveController {
       difficulty: this.difficulty,
       result,
       moveCount,
-      statusText
+      statusText,
+      openingUci: this.controller.getMoveHistoryUci().slice(0, 8)
     });
   }
 
@@ -254,6 +260,19 @@ export class AiMoveController {
       this.difficulty,
       DIFFICULTY_CONFIG[this.difficulty].moveTimeMs
     );
+
+    if (this.difficulty === "Impossible") {
+      const openingMoves = this.controller.getMoveHistoryUci();
+      const length = openingMoves.length >= 8 ? 8 : openingMoves.length >= 6 ? 6 : openingMoves.length >= 4 ? 4 : 0;
+      const key = length ? openingMoves.slice(0, length).join(" ") : null;
+      if (key && key !== this.openingInsightKey) {
+        this.openingInsightKey = key;
+        // Best-effort and non-blocking: Supabase never holds up Stockfish.
+        void loadSharedOpeningPressure(openingMoves).then((risk) => {
+          if (this.openingInsightKey === key) this.sharedOpeningPressure = risk;
+        });
+      }
+    }
 
     try {
       await this.pause(adaptivePlan.openingPauseMs);
@@ -315,7 +334,7 @@ export class AiMoveController {
       const positionFen = this.controller.getFen();
       const impossibleBudget =
         this.difficulty === "Impossible"
-          ? planImpossibleSearch(positionFen, this.aiTimeMs, this.controller.getSnapshot().moveCount, adaptivePlan.moveTimeMs)
+          ? planImpossibleSearch(positionFen, this.aiTimeMs, this.controller.getSnapshot().moveCount, adaptivePlan.moveTimeMs, this.sharedOpeningPressure)
           : null;
       const analysis = await this.engine.analyzePosition({
         fen: positionFen,

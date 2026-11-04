@@ -1,3 +1,4 @@
+import { Chess } from "chess.js";
 import { getApiAuthHeaders } from "../auth/apiSession";
 import type { RawEngineLine } from "./candidateMoves";
 import { normalizeCandidateMoves, type EngineCandidateMove } from "./candidateMoves";
@@ -14,7 +15,7 @@ export interface EngineAnalysisRequest {
 export interface EngineAnalysisResult {
   bestMove: string;
   candidates: EngineCandidateMove[];
-  source?: "gcp-stockfish-19" | "local-stockfish-19";
+  source?: "gcp-stockfish-19" | "local-stockfish-19" | "gcp-syzygy";
 }
 
 interface RemoteAnalysisLine {
@@ -244,6 +245,11 @@ export class StockfishEngine {
   private readonly local = new LocalStockfish19Engine();
 
   async analyzePosition(request: EngineAnalysisRequest): Promise<EngineAnalysisResult> {
+    // Exact Syzygy 7-piece endgames are mathematically solved, so their
+    // winning/drawing best moves outrank heuristic Stockfish evaluations.
+    // Failure must never prevent normal GCP-first / WASM-fallback play.
+    const tablebase = await this.lookupExactTablebase(request.fen);
+    if (tablebase) return tablebase;
     try {
       return await this.analyzeRemote(request);
     } catch {
@@ -253,6 +259,61 @@ export class StockfishEngine {
 
   dispose() {
     this.local.dispose();
+  }
+
+  private async lookupExactTablebase(fen: string): Promise<EngineAnalysisResult | null> {
+    let position: Chess;
+    try {
+      position = new Chess(fen);
+      if (position.board().flat().filter(Boolean).length > 7) return null;
+    } catch {
+      return null;
+    }
+
+    const headers = await getApiAuthHeaders();
+    if (!headers.Authorization) return null;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 3600);
+
+    try {
+      const response = await fetch("/api/engine", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ mode: "tablebase", fen }),
+        signal: controller.signal
+      });
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as {
+        available?: boolean;
+        exact?: boolean;
+        moves?: Array<{ uci?: string; category?: string }>;
+      };
+      if (!data.available || !data.exact || !Array.isArray(data.moves)) return null;
+
+      for (const candidate of data.moves) {
+        const uci = candidate.uci;
+        if (typeof uci !== "string" || !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) continue;
+        // Independently validate the exact move against Cedar's legal rules.
+        const clone = new Chess(fen);
+        try {
+          clone.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+        } catch {
+          continue;
+        }
+
+        return {
+          bestMove: uci,
+          candidates: [{ move: uci, score: 0, depth: 0, label: "exact-tablebase", pv: [uci], mateIn: null }],
+          source: "gcp-syzygy"
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      window.clearTimeout(timer);
+    }
   }
 
   private async analyzeRemote(request: EngineAnalysisRequest): Promise<EngineAnalysisResult> {

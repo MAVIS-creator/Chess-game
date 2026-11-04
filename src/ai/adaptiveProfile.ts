@@ -27,6 +27,7 @@ export interface MatchHistoryEntry {
   result: "win" | "loss" | "draw";
   moveCount: number;
   statusText: string;
+  openingUci: string[];
 }
 
 const DEFAULT_PROFILE: AdaptiveProfile = {
@@ -186,6 +187,7 @@ export const persistMatchHistory = async (entry: MatchHistoryEntry) => {
       result: entry.result,
       move_count: entry.moveCount,
       status_text: entry.statusText,
+      opening_uci: entry.openingUci.slice(0, 8),
       created_at: new Date().toISOString()
     });
 

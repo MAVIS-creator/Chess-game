@@ -88,8 +88,10 @@ export class Hud {
     // Engine provenance is the backend that produced the last AI move.
     // "stockfish" vs "llm" tracks commentary/decision logic, not GCP vs WASM.
     const engineStatus =
-      botState.engineSource === "gcp-stockfish-19"
-        ? { label: "GCP · Stockfish 19", className: "engine-gcp", description: "Last AI move analyzed by the main Google Cloud Stockfish engine." }
+      botState.engineSource === "gcp-syzygy"
+        ? { label: "GCP · Syzygy Exact", className: "engine-gcp", description: "The last AI move came from an exact 7-piece Syzygy endgame tablebase." }
+        : botState.engineSource === "gcp-stockfish-19"
+          ? { label: "GCP · Stockfish 19", className: "engine-gcp", description: "Last AI move analyzed by the main Google Cloud Stockfish engine." }
         : botState.engineSource === "local-stockfish-19"
           ? { label: "Local · Stockfish 19", className: "engine-local", description: "Last AI move analyzed by the browser fallback Stockfish engine." }
           : { label: "Engine · Waiting", className: "engine-idle", description: "No AI engine move has been completed in this match yet." };

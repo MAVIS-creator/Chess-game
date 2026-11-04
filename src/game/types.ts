@@ -18,7 +18,7 @@ export interface BotHudState {
   thinkingStage: string | null;
   lastStyle: string;
   source: "stockfish" | "llm";
-  engineSource: "gcp-stockfish-19" | "local-stockfish-19" | null;
+  engineSource: "gcp-stockfish-19" | "local-stockfish-19" | "gcp-syzygy" | null;
   playerName: string;
   playerColor: PieceColor;
   botColor: PieceColor;

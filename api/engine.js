@@ -44,6 +44,41 @@ export default async function handler(req, res) {
   }
 
   const target = (process.env.CHESS_MCP_URL || DEFAULT_ENGINE_URL).replace(/\/$/, "");
+  if (payload.mode === "tablebase") {
+    // The same authenticated, rate-limited endpoint brokers Syzygy lookups.
+    // Never expose the Cloud Run bearer token to the browser.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3200);
+    try {
+      const response = await fetch(`${target}/api/tablebase`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ fen }),
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        return sendJson(res, 502, { available: false, exact: false });
+      }
+      const result = await response.json();
+      return sendJson(res, 200, {
+        applicable: result.applicable === true,
+        available: result.available === true,
+        exact: result.exact === true,
+        moves: Array.isArray(result.moves)
+          ? result.moves.slice(0, 8).map((move) => ({ uci: move.uci, category: move.category, dtz: move.dtz }))
+          : [],
+        source: "gcp-syzygy"
+      });
+    } catch {
+      return sendJson(res, 503, { available: false, exact: false });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   const timeMs = clampInt(payload.timeMs, 50, 12_000, 1200);
   const multipv = clampInt(payload.multiPv, 1, 5, 3);
   const depth = payload.depth == null ? null : clampInt(payload.depth, 1, 40, 16);
