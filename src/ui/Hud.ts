@@ -233,7 +233,6 @@ export class Hud {
         <span class="info-pill" title="15 minutes per side for the entire match, no increment">15+0 rapid</span>
         <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
         ${engineStatusMarkup}
-        ${engineStatusMarkup}
       </div>
 
       <div class="desktop-card-row">${commentaryMarkup}${lastMoveMarkup}${capturedMarkup}</div>
@@ -258,10 +257,16 @@ export class Hud {
       </div>
 
       <div class="info-bar compact-info-bar">
-        <span class="info-pill">${infoTitle}</span>
-        <span class="info-pill">${difficultyIcon(botState.difficulty)} ${botState.difficulty}</span>
-        <span class="info-pill" title="15 minutes per side for the entire match, no increment">15+0 rapid</span>
-        <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
+        <div class="compact-meta-row">
+          <span class="info-pill">${infoTitle}</span>
+          <span class="info-pill">${difficultyIcon(botState.difficulty)} ${botState.difficulty}</span>
+          <span class="info-pill" title="15 minutes per side for the entire match, no increment">15+0 rapid</span>
+          <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
+        </div>
+        <div class="compact-engine-row" role="status" aria-live="polite">
+          <span class="compact-engine-caption">Last AI move</span>
+          ${engineStatusMarkup}
+        </div>
       </div>
 
       <div class="control-drawer ${this.menuOpen ? "is-open" : ""}">
