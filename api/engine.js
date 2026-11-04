@@ -44,10 +44,10 @@ export default async function handler(req, res) {
   }
 
   const target = (process.env.CHESS_MCP_URL || DEFAULT_ENGINE_URL).replace(/\/$/, "");
-  const timeMs = clampInt(payload.timeMs, 50, 6000, 1200);
+  const timeMs = clampInt(payload.timeMs, 50, 12_000, 1200);
   const multipv = clampInt(payload.multiPv, 1, 5, 3);
   const depth = payload.depth == null ? null : clampInt(payload.depth, 1, 40, 16);
-  const clientTimeoutMs = clampInt(payload.timeoutMs, 700, 8000, Math.max(1800, timeMs + 1200));
+  const clientTimeoutMs = clampInt(payload.timeoutMs, 700, 16_000, Math.max(1800, timeMs + 2500));
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), clientTimeoutMs);
 
