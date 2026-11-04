@@ -660,6 +660,7 @@ const startGame = async () => {
   let recordedOutcomeSignature = "";
   const botColor: PieceColor = playerColor === "white" ? "black" : "white";
   let sessionActive = true;
+  let clockStarted = false;
   const compactLayout = isMobileChessDevice();
 
   aiController.setPlayerIdentity(activePlayer.id, playerName);
@@ -674,40 +675,41 @@ const startGame = async () => {
   aiController.reset();
   void aiController.hydrateAdaptiveMemory();
 
-  const tickClock = () => {
-    if (!sessionActive) {
-      return;
-    }
+  const advanceClock = () => {
+    if (!sessionActive || !clockStarted) return;
 
     const snapshot = controller.getSnapshot();
     const now = performance.now();
-    const delta = now - lastTickAt;
+    const delta = Math.max(0, now - lastTickAt);
     lastTickAt = now;
 
-    // Chess rapid 15+0: the clock is a full-game budget, never reset on a
-    // move. Charge elapsed time to the previous active side before switching.
-    // A pending promotion is still that player's turn, so its clock runs.
+    // Rapid 15+0: time carries across moves. Charge the previous mover
+    // before switching clocks. Promotion choices remain on the active clock.
+    // Calling this during a completed move (sync) also makes tab suspension
+    // and asynchronous AI moves fair when animation frames are throttled.
     if (!snapshot.gameOver && !timedOutSide) {
-      remainingMs[activeTurnColor] = Math.max(0, remainingMs[activeTurnColor] - Math.max(0, delta));
+      remainingMs[activeTurnColor] = Math.max(0, remainingMs[activeTurnColor] - delta);
       if (remainingMs[activeTurnColor] <= 0) {
         timedOutSide = activeTurnColor;
-      } else if (snapshot.currentTurn !== activeTurnColor) {
+      } else {
         activeTurnColor = snapshot.currentTurn;
       }
     }
+  };
 
+  const tickClock = () => {
+    if (!sessionActive) return;
+    advanceClock();
     aiController.setClockState(
       remainingMs[playerColor],
-      remainingMs[playerColor === "white" ? "black" : "white"],
+      remainingMs[botColor],
       timedOutSide
     );
-
-    if (sessionActive) {
-      window.requestAnimationFrame(tickClock);
-    }
+    if (sessionActive) window.requestAnimationFrame(tickClock);
   };
 
   const sync = () => {
+    advanceClock();
     const snapshot = controller.getSnapshot();
     const displayTargets = snapshot.legalTargets;
     const selectedPiece = snapshot.selectedSquare
@@ -888,8 +890,9 @@ const startGame = async () => {
 
   try {
     await chessScene.loadScene();
-    sync();
+    clockStarted = true;
     lastTickAt = performance.now();
+    sync();
     window.requestAnimationFrame(tickClock);
     if (controller.getSnapshot().currentTurn === (playerColor === "white" ? "black" : "white")) {
       void syncAndRunBotTurn();
