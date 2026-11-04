@@ -118,6 +118,7 @@ export interface DifficultyConfig {
   singularMarginCp: number;
   maxCandidateCount: number;
   forceBestMove: boolean;
+  /** Total time per player for the entire match (15+0), not per move. */
   clockSeconds: number;
   searchTimeoutMs: number;
   mateScanTimeoutMs: number;
@@ -136,7 +137,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     singularMarginCp: 220,
     maxCandidateCount: 5,
     forceBestMove: false,
-    clockSeconds: 60,
+    clockSeconds: 15 * 60,
     searchTimeoutMs: 700,
     mateScanTimeoutMs: 0,
     commentaryTimeoutMs: 1200
@@ -152,7 +153,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     singularMarginCp: 180,
     maxCandidateCount: 4,
     forceBestMove: false,
-    clockSeconds: 50,
+    clockSeconds: 15 * 60,
     searchTimeoutMs: 900,
     mateScanTimeoutMs: 0,
     commentaryTimeoutMs: 1300
@@ -168,7 +169,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     singularMarginCp: 130,
     maxCandidateCount: 3,
     forceBestMove: false,
-    clockSeconds: 40,
+    clockSeconds: 15 * 60,
     searchTimeoutMs: 1100,
     mateScanTimeoutMs: 450,
     commentaryTimeoutMs: 1400
@@ -184,7 +185,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     singularMarginCp: 50,
     maxCandidateCount: 2,
     forceBestMove: false,
-    clockSeconds: 30,
+    clockSeconds: 15 * 60,
     searchTimeoutMs: 1450,
     mateScanTimeoutMs: 550,
     commentaryTimeoutMs: 1500
@@ -200,7 +201,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     singularMarginCp: 20,
     maxCandidateCount: 1,
     forceBestMove: true,
-    clockSeconds: 25,
+    clockSeconds: 15 * 60,
     searchTimeoutMs: 2200,
     mateScanTimeoutMs: 700,
     commentaryTimeoutMs: 2400
@@ -210,7 +211,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     // not to weaker alternatives. Depth is a cap; actual depth depends on CPU.
     depth: 36,
     multiPv: 1,
-    moveTimeMs: 4500,
+    moveTimeMs: 6000,
     temperature: 0,
     commentaryFallback: "Your clock bleeds before the board does.",
     selectionBias: "attacking",
@@ -218,9 +219,9 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     singularMarginCp: 12,
     maxCandidateCount: 1,
     forceBestMove: true,
-    clockSeconds: 20,
+    clockSeconds: 15 * 60,
     // Allow network/engine overhead beyond the allocated 4.5 s thinking time.
-    searchTimeoutMs: 6400,
+    searchTimeoutMs: 14_500,
     mateScanTimeoutMs: 1500,
     commentaryTimeoutMs: 2600
   }

@@ -228,6 +228,7 @@ export class Hud {
       <div class="info-bar">
         <span class="info-pill">${infoTitle}</span>
         <span class="info-pill">${difficultyIcon(botState.difficulty)} ${botState.difficulty}</span>
+        <span class="info-pill" title="15 minutes per side for the entire match, no increment">15+0 rapid</span>
         <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
         ${engineStatusMarkup}
         ${engineStatusMarkup}
@@ -257,6 +258,7 @@ export class Hud {
       <div class="info-bar compact-info-bar">
         <span class="info-pill">${infoTitle}</span>
         <span class="info-pill">${difficultyIcon(botState.difficulty)} ${botState.difficulty}</span>
+        <span class="info-pill" title="15 minutes per side for the entire match, no increment">15+0 rapid</span>
         <span class="info-pill">${snapshot.currentTurn === "white" ? "⚪ White" : "⚫ Black"}</span>
       </div>
 

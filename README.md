@@ -50,6 +50,58 @@ The fallback is generated from the pinned `stockfish@19.0.1` npm package during 
 - **Accessibility:** Login and signup remain part of normal page flow, with
   readable contrast and no fixed bottom overlay hiding form controls.
 
+## Rapid 15+0 match clock and adaptive search
+
+Cedar Chess now uses the chess.com-style **15+0 rapid clock** in every
+difficulty: **15 minutes for White and 15 minutes for Black**, with no
+increment. A clock runs only while its side is to move; each player's
+remaining time **carries forward** across moves and never resets after
+one move. A promotion choice is part of that player's turn. Reset starts
+a fresh 15+0 match; timeout ends the match and declares the other side
+the winner on time. The UI and match HUD identify the 15+0 time control.
+
+**Impossible** keeps Stockfish 19 as the authoritative decision-maker.
+Its adaptive layer now budgets analysis according to:
+
+- The bot's actual remaining time, with a reserve for future moves.
+- The number of moves played so far and an estimated number still to play.
+- Whether the position contains multiple forcing candidates (checks,
+  captures, and promotions), where a deeper search is more valuable.
+- The existing adaptive player-history factors, which modestly adjust
+  the engine's base thinking time.
+
+The GCP backend allows up to **15 seconds** of analysis by default.
+Cedar Chess's authenticated Vercel engine proxy is now configured to
+pass up to **12 seconds per search request**, with 15.5 seconds allowed
+for network overhead and a 20-second function duration cap. The local
+Stockfish 19 Lite WASM engine is similarly bounded at 12 seconds.
+These remain *per-move search limits*, not 15 minutes of computation
+for every move.
+
+At the start of a 15+0 game Impossible typically budgets **9 seconds**
+for quiet positions and **12 seconds** for tactically forcing ones.
+It cuts that budget as its remaining 15-minute clock runs low. It
+retains the best-ranked, single-PV Stockfish move; an LLM cannot
+overrule the engine. Optional mate probes are skipped at low time.
+The match HUD identifies which engine answered each AI move.
+
+Longer GCP searches use additional Cloud Run CPU time and may increase
+running costs. If the GCP server fails or times out, the browser
+fallback can take additional time from the bot's same 15-minute clock.
+
+The AI commentary providers explain the moves and may inform the time
+allocation policy, but an LLM is not a replacement for Stockfish's
+search/evaluation and cannot promise a zero-blunder game.
+
+**Performance:** clock values are updated internally every animation
+frame, but the expensive game HUD redraw now happens only when a
+displayed second changes or the clock flags. This preserves more CPU
+headroom for the local Stockfish WASM engine.
+
+The goal of a 0.1%–0.5% loss rate remains **unverified**; it requires
+hundreds or thousands of reproducible games against specified ratings,
+with GCP and local fallback results reported separately.
+
 ## Impossible: deeper tactical and mating search
 
 Impossible always requests a **single principal variation** (MultiPV 1), and
@@ -60,8 +112,9 @@ To make it stronger while preserving the live clock:
 
 - Increase the requested engine depth cap from **30 to 36** (the engine may
   reach a lower actual depth within its time budget).
-- Increase main engine thinking time from **2.4 to 4.5 seconds**, with up to
-  **6.4 seconds** allowed for request and engine overhead.
+- Initially raised the engine budget from 2.4 to 4.5 seconds, and then
+  expanded the 15+0 mode's dynamic search window up to **9–12 seconds**,
+  with bounded transport overhead.
 - Extend the opportunistic mating search from **mate 9 to mate 10** (plus
   bounded adaptive extension), with a **1.5-second** probe budget.
 - If that preliminary mate probe fails or times out, the normal strongest-move
@@ -76,8 +129,8 @@ chess moves in each position and already handles the short opening mates
 skewers, discovered checks, mating nets, and endgames. A hard-coded list
 of traps would make Impossible more predictable rather than stronger.
 
-The AI's move budget is finite and the default Impossible clock is 20 seconds
-per side per turn, so Impossible is intentionally extremely challenging but
+The AI's search budget is finite and both sides use 15 minutes for the entire
+match, so Impossible is intentionally extremely challenging but
 **not mathematically unbeatable**.
 
 ## Difficulty ladder
@@ -87,7 +140,7 @@ per side per turn, so Impossible is intentionally extremely challenging but
 - `Hard` — sharp and consistent.
 - `Boss Mode` — aggressive and punishing.
 - `Nightmare Mode` — extremely strong with rank-1 engine selection.
-- `Impossible` — the strongest mode. Stockfish uses the deepest current search budget, the AI begins as White, and the clocks are intentionally brutal.
+- `Impossible` — the strongest mode. Stockfish uses the deepest current search budget, the AI begins as White, and both sides receive full 15-minute rapid clocks.
 
 `Impossible` is the maximum-strength mode in the current app.
 

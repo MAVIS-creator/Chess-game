@@ -373,6 +373,11 @@ const renderMenu = () => {
           <strong>${selectedDifficulty}</strong>
           <p>${difficultyDescription(selectedDifficulty)}</p>
         </div>
+        <div class="hero-status compact">
+          <span class="hero-label">Game clock · 15+0 rapid</span>
+          <strong>15:00 per player, for the whole game</strong>
+          <p>Each clock counts down only while that side is to move. No reset after each move and no increment.</p>
+        </div>
         <button class="start-button" id="start-match" type="button">Start game</button>
         <button class="account-link-button" id="open-account-settings" type="button">♔ Account settings · Change email or password</button>
       </aside>
@@ -541,7 +546,7 @@ const difficultyDescription = (difficulty: BotDifficulty) => {
     case "Nightmare Mode":
       return "Extremely hard with heavy tactical pressure.";
     case "Impossible":
-      return "Final boss chess. The AI starts as White, you defend as Black, and both clocks are brutal.";
+      return "Final boss chess. The AI starts as White; both sides have a full 15-minute rapid clock.";
   }
 };
 
@@ -655,6 +660,7 @@ const startGame = async () => {
   let recordedOutcomeSignature = "";
   const botColor: PieceColor = playerColor === "white" ? "black" : "white";
   let sessionActive = true;
+  let clockStarted = false;
   const compactLayout = isMobileChessDevice();
 
   aiController.setPlayerIdentity(activePlayer.id, playerName);
@@ -669,42 +675,41 @@ const startGame = async () => {
   aiController.reset();
   void aiController.hydrateAdaptiveMemory();
 
-  const tickClock = () => {
-    if (!sessionActive) {
-      return;
-    }
+  const advanceClock = () => {
+    if (!sessionActive || !clockStarted) return;
 
     const snapshot = controller.getSnapshot();
     const now = performance.now();
-    const delta = now - lastTickAt;
+    const delta = Math.max(0, now - lastTickAt);
     lastTickAt = now;
 
-    if (!timedOutSide && snapshot.currentTurn !== activeTurnColor) {
-      activeTurnColor = snapshot.currentTurn;
-      remainingMs.white = baseClockMs;
-      remainingMs.black = baseClockMs;
-    }
-
-    if (!snapshot.gameOver && !timedOutSide && !snapshot.pendingPromotion) {
-      const activeColor = snapshot.currentTurn;
-      remainingMs[activeColor] = Math.max(0, remainingMs[activeColor] - delta);
-      if (remainingMs[activeColor] <= 0) {
-        timedOutSide = activeColor;
+    // Rapid 15+0: time carries across moves. Charge the previous mover
+    // before switching clocks. Promotion choices remain on the active clock.
+    // Calling this during a completed move (sync) also makes tab suspension
+    // and asynchronous AI moves fair when animation frames are throttled.
+    if (!snapshot.gameOver && !timedOutSide) {
+      remainingMs[activeTurnColor] = Math.max(0, remainingMs[activeTurnColor] - delta);
+      if (remainingMs[activeTurnColor] <= 0) {
+        timedOutSide = activeTurnColor;
+      } else {
+        activeTurnColor = snapshot.currentTurn;
       }
-    }
-
-    aiController.setClockState(
-      remainingMs[playerColor],
-      remainingMs[playerColor === "white" ? "black" : "white"],
-      timedOutSide
-    );
-
-    if (sessionActive) {
-      window.requestAnimationFrame(tickClock);
     }
   };
 
+  const tickClock = () => {
+    if (!sessionActive) return;
+    advanceClock();
+    aiController.setClockState(
+      remainingMs[playerColor],
+      remainingMs[botColor],
+      timedOutSide
+    );
+    if (sessionActive) window.requestAnimationFrame(tickClock);
+  };
+
   const sync = () => {
+    advanceClock();
     const snapshot = controller.getSnapshot();
     const displayTargets = snapshot.legalTargets;
     const selectedPiece = snapshot.selectedSquare
@@ -885,8 +890,9 @@ const startGame = async () => {
 
   try {
     await chessScene.loadScene();
-    sync();
+    clockStarted = true;
     lastTickAt = performance.now();
+    sync();
     window.requestAnimationFrame(tickClock);
     if (controller.getSnapshot().currentTurn === (playerColor === "white" ? "black" : "white")) {
       void syncAndRunBotTurn();
