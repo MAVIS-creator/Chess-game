@@ -40,7 +40,7 @@ export interface BotRuntimeState {
   thinkingStage: string | null;
   lastStyle: string;
   source: "stockfish" | "llm";
-  engineSource: "gcp-stockfish-19" | "local-stockfish-19" | null;
+  engineSource: "gcp-stockfish-19" | "local-stockfish-19" | "gcp-syzygy" | null;
   playerName: string;
   playerColor: PieceColor;
   botColor: PieceColor;
@@ -61,7 +61,7 @@ export class AiMoveController {
   private commentary = "The board is waiting.";
   private lastStyle = "opening";
   private source: "stockfish" | "llm" = "stockfish";
-  private engineSource: "gcp-stockfish-19" | "local-stockfish-19" | null = null;
+  private engineSource: "gcp-stockfish-19" | "local-stockfish-19" | "gcp-syzygy" | null = null;
   private playerName = "Guest";
   private playerId: string | null = null;
   private playerTimeMs = 0;
