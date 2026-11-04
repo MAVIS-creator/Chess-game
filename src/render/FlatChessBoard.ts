@@ -1,20 +1,6 @@
 import type { GamePieceState, MoveSummary, SquareId } from "../game/types";
 import { FILES, RANKS } from "../game/types";
-
-const PIECE_GLYPHS: Record<string, string> = {
-  white_pawn: "♙",
-  white_rook: "♖",
-  white_knight: "♘",
-  white_bishop: "♗",
-  white_queen: "♕",
-  white_king: "♔",
-  black_pawn: "♟",
-  black_rook: "♜",
-  black_knight: "♞",
-  black_bishop: "♝",
-  black_queen: "♛",
-  black_king: "♚"
-};
+import { renderFlatPiece } from "./flatPieceArtwork";
 
 export class FlatChessBoard {
   private readonly boardElement: HTMLDivElement;
@@ -37,6 +23,8 @@ export class FlatChessBoard {
 
     this.boardElement = document.createElement("div");
     this.boardElement.className = "flat-board";
+    this.boardElement.setAttribute("role", "group");
+    this.boardElement.setAttribute("aria-label", "Cedar Chess, interactive 2D chessboard");
     shell.appendChild(this.boardElement);
     this.mount.appendChild(shell);
     this.renderBoard();
@@ -101,24 +89,32 @@ export class FlatChessBoard {
 
   syncBoardState(pieces: GamePieceState[]) {
     this.lastPieces = pieces.map((piece) => ({ ...piece }));
-    for (const element of this.squareElements.values()) {
-      element.textContent = "";
-      element.classList.remove("is-white-piece", "is-black-piece");
-    }
+    const bySquare = new Map<SquareId, GamePieceState>();
 
     for (const piece of pieces) {
-      if (piece.captured || !piece.square) {
-        continue;
+      if (!piece.captured && piece.square) {
+        bySquare.set(piece.square, piece);
       }
+    }
 
-      const square = this.squareElements.get(piece.square);
-      if (!square) {
-        continue;
+    // Retain stable SVG and coordinate nodes between clock updates.
+    // Only replace artwork when a square's occupant actually changes.
+    for (const [square, button] of this.squareElements) {
+      const piece = bySquare.get(square);
+      const pieceKey = piece ? `${piece.color}_${piece.role}` : "";
+      if (button.dataset.pieceKey !== pieceKey) {
+        const slot = button.querySelector<HTMLElement>(".flat-piece-slot");
+        if (slot) {
+          slot.innerHTML = piece ? renderFlatPiece(piece.color, piece.role) : "";
+        }
+        button.dataset.pieceKey = pieceKey;
       }
-
-      square.textContent = PIECE_GLYPHS[`${piece.color}_${piece.role}`] ?? "";
-      square.classList.toggle("is-white-piece", piece.color === "white");
-      square.classList.toggle("is-black-piece", piece.color === "black");
+      button.classList.toggle("is-white-piece", piece?.color === "white");
+      button.classList.toggle("is-black-piece", piece?.color === "black");
+      button.setAttribute(
+        "aria-label",
+        `${square.toUpperCase()}${piece ? `, ${piece.color} ${piece.role}` : ", empty"}`
+      );
     }
   }
 
@@ -144,6 +140,26 @@ export class FlatChessBoard {
         squareButton.className = `flat-square ${((fileIndex + rankIndex) % 2 === 0) ? "is-dark" : "is-light"}`;
         squareButton.dataset.square = square;
         squareButton.setAttribute("aria-label", square.toUpperCase());
+        const slot = document.createElement("span");
+        slot.className = "flat-piece-slot";
+        slot.setAttribute("aria-hidden", "true");
+        squareButton.appendChild(slot);
+
+        if (file === files[0]) {
+          const rankLabel = document.createElement("span");
+          rankLabel.className = "flat-coordinate flat-rank";
+          rankLabel.textContent = rank;
+          rankLabel.setAttribute("aria-hidden", "true");
+          squareButton.appendChild(rankLabel);
+        }
+        if (rank === ranks[ranks.length - 1]) {
+          const fileLabel = document.createElement("span");
+          fileLabel.className = "flat-coordinate flat-file";
+          fileLabel.textContent = file;
+          fileLabel.setAttribute("aria-hidden", "true");
+          squareButton.appendChild(fileLabel);
+        }
+
         squareButton.addEventListener("click", () => this.onSquareSelect?.(square));
         this.squareElements.set(square, squareButton);
         this.boardElement.appendChild(squareButton);

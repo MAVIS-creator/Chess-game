@@ -1685,3 +1685,338 @@ h1 {
     padding: 0.4rem 0.58rem;
   }
 }
+
+
+/* Cedar Chess 2D Edition — premium, tactile olive-and-ivory board.
+ * All artwork is inline vector so no external assets or font loading.
+ * The physical mobile board stays separate from the desktop 3D GLB. */
+.space-stage.flat-board-host {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 11rem max(0.45rem, env(safe-area-inset-right)) 8.5rem max(0.45rem, env(safe-area-inset-left));
+  box-sizing: border-box;
+}
+
+.flat-board-host .flat-board-shell {
+  flex: 0 0 auto;
+  width: min(100%, 34rem, max(14rem, calc(100dvh - 20rem)));
+  max-width: 100%;
+  aspect-ratio: 1;
+  padding: clamp(4px, 1vw, 7px);
+  border: 1px solid rgba(255, 239, 197, 0.62);
+  border-radius: clamp(0.9rem, 3vw, 1.4rem);
+  background:
+    linear-gradient(130deg, #ecd1a2 0%, #9f7949 18%, #4c5230 49%, #a98d57 82%, #ecd3a4 100%);
+  box-shadow:
+    0 0 0 1px rgba(26, 35, 19, 0.2),
+    0 0.6rem 1.2rem rgba(43, 51, 27, 0.25),
+    0 1.8rem 4.4rem rgba(37, 51, 22, 0.26),
+    inset 0 2px 2px rgba(255, 248, 210, 0.7),
+    inset 0 -3px 5px rgba(32, 39, 21, 0.35);
+  overflow: hidden;
+}
+
+.flat-board-host .flat-board {
+  overflow: hidden;
+  border-radius: clamp(0.5rem, 1.5vw, 0.85rem);
+  box-shadow: inset 0 0 0 1px rgba(45, 60, 31, 0.36);
+}
+
+.flat-board-host .flat-square {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  box-shadow: inset 0 0 0 0.5px rgba(30, 46, 22, 0.1);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.flat-board-host .flat-square.is-light {
+  background: linear-gradient(145deg, #fff9e6 0%, #f2e9d0 55%, #e8ddbf 100%);
+}
+
+.flat-board-host .flat-square.is-dark {
+  background: linear-gradient(145deg, #829a6f 0%, #6f8965 55%, #617d58 100%);
+}
+
+.flat-board-host .flat-square::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 130ms ease, box-shadow 130ms ease;
+}
+
+.flat-board-host .flat-square.is-last-move::before {
+  background: rgba(240, 194, 95, 0.31);
+}
+
+.flat-board-host .flat-square.is-selected::before {
+  background: rgba(255, 202, 83, 0.22);
+  box-shadow: inset 0 0 0 clamp(2px, 0.55vw, 4px) #f0bb4f;
+}
+
+.flat-board-host .flat-square.is-selected {
+  box-shadow: inset 0 0 0 1px rgba(255, 243, 207, 0.62);
+}
+
+.flat-board-host .flat-square.is-last-move:not(.is-selected) {
+  box-shadow: inset 0 0 0 1px rgba(177, 129, 45, 0.35);
+}
+
+.flat-board-host .flat-square.is-check::before {
+  background: radial-gradient(circle, rgba(195, 48, 53, 0.78) 0%, rgba(221, 84, 66, 0.29) 55%, transparent 79%);
+  box-shadow: inset 0 0 0 2px rgba(167, 37, 43, 0.62);
+}
+
+.flat-board-host .flat-square::after {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.flat-board-host .flat-square.is-legal::after {
+  width: 23%;
+  height: 23%;
+  opacity: 0.55;
+  background: #294f36;
+  box-shadow: 0 0 0 2px rgba(251, 250, 223, 0.31);
+}
+
+.flat-board-host .flat-square.is-capture::after {
+  width: 84%;
+  height: 84%;
+  opacity: 0.98;
+  background: none;
+  box-shadow: inset 0 0 0 clamp(3px, 0.75vw, 5px) rgba(164, 47, 42, 0.88);
+}
+
+.flat-piece-slot {
+  position: absolute;
+  z-index: 2;
+  inset: 4%;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.flat-piece-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: translateZ(0);
+  filter: drop-shadow(0 2px 1px rgba(23, 35, 19, 0.25));
+}
+
+.flat-piece-svg.is-white {
+  --piece-main: #fff9e9;
+  --piece-outline: #615746;
+  --piece-detail: #b3a48a;
+  --piece-base-fill: #e5d9c0;
+  --piece-eye: #504735;
+  filter: drop-shadow(0 2px 1px rgba(35, 39, 27, 0.45));
+}
+
+.flat-piece-svg.is-black {
+  --piece-main: #27382b;
+  --piece-outline: #d9d5b7;
+  --piece-detail: #839782;
+  --piece-base-fill: #1e2c21;
+  --piece-eye: #e6d5b4;
+  filter: drop-shadow(0 2px 1px rgba(8, 21, 10, 0.54));
+}
+
+.flat-piece-svg .piece-body {
+  fill: var(--piece-main);
+  stroke: var(--piece-outline);
+  stroke-width: 3.2;
+}
+
+.flat-piece-svg .piece-base {
+  fill: var(--piece-base-fill);
+  stroke: var(--piece-outline);
+  stroke-width: 3.2;
+}
+
+.flat-piece-svg .piece-detail,
+.flat-piece-svg .piece-base-detail {
+  fill: none;
+  stroke: var(--piece-detail);
+  stroke-width: 3.2;
+}
+
+.flat-piece-svg .piece-detail-dot {
+  fill: var(--piece-base-fill);
+  stroke: var(--piece-outline);
+  stroke-width: 2.8;
+}
+
+.flat-piece-svg .piece-eye {
+  fill: var(--piece-eye);
+  stroke: none;
+}
+
+.flat-piece-svg .piece-floor {
+  fill: rgba(25, 36, 22, 0.19);
+}
+
+.flat-coordinate {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: clamp(0.55rem, 1.65vw, 0.72rem);
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.82;
+}
+
+.flat-square.is-light .flat-coordinate {
+  color: #617653;
+}
+
+.flat-square.is-dark .flat-coordinate {
+  color: #f8efdd;
+}
+
+.flat-coordinate.flat-rank {
+  top: 0.25rem;
+  left: 0.3rem;
+}
+
+.flat-coordinate.flat-file {
+  bottom: 0.22rem;
+  right: 0.28rem;
+}
+
+.flat-board-host .flat-square:focus-visible {
+  outline: 3px solid #f7c04e;
+  outline-offset: -3px;
+  z-index: 5;
+}
+
+/* Engine status must never vanish on mobile: a permanent second HUD row
+ * replaces the clipped one-line scroll container from the previous build. */
+.info-bar.compact-info-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  gap: 0.32rem;
+  width: min(36rem, calc(100vw - 0.9rem));
+  padding: 0.35rem 0.46rem;
+  border-radius: 1.2rem;
+  overflow: visible;
+  background: rgba(246, 243, 220, 0.96);
+  box-shadow: 0 0.35rem 1rem rgba(38, 49, 26, 0.16);
+}
+
+.compact-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.compact-meta-row .info-pill {
+  padding: 0.34rem 0.5rem;
+  font-size: clamp(0.65rem, 2.1vw, 0.79rem);
+  line-height: 1.2;
+}
+
+.compact-engine-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 1.9rem;
+  padding: 0.3rem 0 0;
+  border-top: 1px solid rgba(67, 82, 43, 0.18);
+}
+
+.compact-engine-caption {
+  font-family: system-ui, sans-serif;
+  font-weight: 750;
+  font-size: clamp(0.58rem, 1.8vw, 0.72rem);
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+  color: #465338;
+  white-space: nowrap;
+}
+
+.compact-engine-row .info-pill.engine-source-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.6rem;
+  padding: 0.28rem 0.8rem;
+  font-size: clamp(0.65rem, 2.1vw, 0.79rem);
+  line-height: 1.15;
+  white-space: nowrap;
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .space-stage.flat-board-host {
+    padding-top: 11.2rem;
+    padding-bottom: 8.2rem;
+  }
+
+  .flat-board-host .flat-board-shell {
+    width: min(100%, 33rem, max(13rem, calc(100dvh - 19.8rem)));
+  }
+}
+
+@media (max-width: 390px) {
+  .info-bar.compact-info-bar {
+    width: calc(100vw - 0.7rem);
+    padding: 0.34rem 0.3rem;
+  }
+
+  .compact-meta-row .info-pill {
+    padding: 0.31rem 0.4rem;
+    font-size: 0.69rem;
+  }
+
+  .space-stage.flat-board-host {
+    padding: 12rem 0.3rem 7.9rem;
+  }
+
+  .flat-board-host .flat-board-shell {
+    width: min(100%, max(12.5rem, calc(100dvh - 20.8rem)));
+  }
+}
+
+@media (max-height: 590px) {
+  .space-stage.flat-board-host {
+    padding-top: 9.5rem;
+    padding-bottom: 7.1rem;
+  }
+
+  .flat-board-host .flat-board-shell {
+    width: min(100%, max(12.5rem, calc(100dvh - 17rem)));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flat-board-host .flat-square,
+  .flat-board-host .flat-square::before,
+  .flat-board-host .flat-square::after {
+    transition: none !important;
+  }
+}

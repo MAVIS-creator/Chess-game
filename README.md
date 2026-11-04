@@ -406,6 +406,31 @@ the illustrative base compute cost is about $0.000477 for 9 s and
 $0.000636 for 12 s, before free credits, cold starts and other costs.
 An optional mate scan and tablebase lookup are separate requests.
 
+## Premium mobile 2D board and visible engine status
+
+The flat board uses the original inline SVG **Cedar Vector** piece set.
+Each pawn, knight, bishop, rook, queen and king has crisp light/dark
+outlines and scalable detail across high-DPI Android and iPhone screens.
+No font fallback, remote sprite, or additional download is required.
+
+- Soft ivory and olive square gradients, restrained golden board frame,
+  tactile shadowing, board coordinates, more legible last-move highlights,
+  selected squares and legal/capture markers.
+- Buttons retain their keyboard/screen-reader labels. Artwork is only
+  rewritten when a square's occupant changes; clock updates do not
+  rebuild 32 SVG chess pieces every second.
+- The 2D board is centered in the available vertical space above the
+  bottom controls rather than leaving a disproportionately large gap
+  under the board on tall phones.
+- The **mobile** HUD now places **Last AI move** in a second permanent
+  row showing `GCP · Stockfish 19`, `Local · Stockfish 19` or
+  `GCP · Syzygy Exact`. Until the first AI move it shows
+  `Engine · Waiting`. This fixes the previous bug where desktop
+  showed the source twice and mobile omitted it entirely.
+- An exact Syzygy result is only possible when the position contains
+  **seven or fewer total chess pieces** and the authenticated GCP
+  tablebase route responds. Normal opening positions always use Stockfish.
+
 ## Which Stockfish engine answered a move?
 
 The live gameplay HUD now identifies the **actual engine behind the last
