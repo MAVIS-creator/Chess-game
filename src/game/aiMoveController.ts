@@ -7,6 +7,7 @@ import {
   recordAdaptiveResult
 } from "../ai/adaptiveProfile";
 import { BotDecisionLayer, type BotDecisionResult } from "../ai/botDecisionLayer";
+import { planImpossibleSearch } from "../ai/impossibleTimeManagement";
 import {
   BOT_PERSONALITIES,
   DIFFICULTY_CONFIG,
@@ -262,7 +263,13 @@ export class AiMoveController {
         return false;
       }
       const mateScanDepth = MATE_SCAN_BY_DIFFICULTY[this.difficulty];
-      if (mateScanDepth && DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs > 0) {
+      const configuredMateTimeout = DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs;
+      // Do not burn the last seconds of a 15+0 game on a preliminary mate probe.
+      const mateTimeoutMs =
+        this.difficulty === "Impossible"
+          ? Math.max(0, Math.min(configuredMateTimeout, this.aiTimeMs - 6000))
+          : configuredMateTimeout;
+      if (mateScanDepth && mateTimeoutMs >= 500) {
         let mateScan: EngineAnalysisResult | null = null;
         try {
           mateScan = await this.engine.analyzePosition({
@@ -270,7 +277,7 @@ export class AiMoveController {
             depth: DIFFICULTY_CONFIG[this.difficulty].depth,
             multiPv: 1,
             mate: mateScanDepth + adaptivePlan.extraMateDepth,
-            timeoutMs: DIFFICULTY_CONFIG[this.difficulty].mateScanTimeoutMs
+            timeoutMs: mateTimeoutMs
           });
         } catch {
           // The mate probe is opportunistic. If cloud and local engines both
@@ -305,12 +312,17 @@ export class AiMoveController {
       if (!this.canProceed()) {
         return false;
       }
+      const positionFen = this.controller.getFen();
+      const impossibleBudget =
+        this.difficulty === "Impossible"
+          ? planImpossibleSearch(positionFen, this.aiTimeMs, this.controller.getSnapshot().moveCount, adaptivePlan.moveTimeMs)
+          : null;
       const analysis = await this.engine.analyzePosition({
-        fen: this.controller.getFen(),
+        fen: positionFen,
         depth: DIFFICULTY_CONFIG[this.difficulty].depth,
         multiPv: DIFFICULTY_CONFIG[this.difficulty].multiPv,
-        moveTimeMs: adaptivePlan.moveTimeMs,
-        timeoutMs: DIFFICULTY_CONFIG[this.difficulty].searchTimeoutMs
+        moveTimeMs: impossibleBudget?.moveTimeMs ?? adaptivePlan.moveTimeMs,
+        timeoutMs: impossibleBudget?.timeoutMs ?? DIFFICULTY_CONFIG[this.difficulty].searchTimeoutMs
       });
 
       this.thinkingStage = "Choosing a move";
