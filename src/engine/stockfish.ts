@@ -85,7 +85,7 @@ class LocalStockfish19Engine {
       this.post("position fen " + request.fen);
       this.post(`setoption name MultiPV value ${clampInt(request.multiPv, 1, 5, 1)}`);
 
-      const timeoutMs = clampInt(request.timeoutMs, 300, 12_000, 4500);
+      const timeoutMs = clampInt(request.timeoutMs, 300, 16_000, 4500);
       this.timeoutId = window.setTimeout(() => {
         if (this.searchPromise?.requestId === requestId) {
           this.post("stop");
@@ -98,7 +98,7 @@ class LocalStockfish19Engine {
       }
 
       if (request.moveTimeMs && request.moveTimeMs > 0) {
-        this.post(`go movetime ${clampInt(request.moveTimeMs, 50, 8000, 1000)}`);
+        this.post(`go movetime ${clampInt(request.moveTimeMs, 50, 12_000, 1000)}`);
         return;
       }
 
@@ -262,7 +262,7 @@ export class StockfishEngine {
     }
 
     const controller = new AbortController();
-    const timeoutMs = clampInt(request.timeoutMs, 700, 8000, Math.max(1800, (request.moveTimeMs ?? 1000) + 1300));
+    const timeoutMs = clampInt(request.timeoutMs, 700, 16_000, Math.max(1800, (request.moveTimeMs ?? 1000) + 2500));
     const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
 
     try {
@@ -273,7 +273,7 @@ export class StockfishEngine {
           fen: request.fen,
           depth: clampInt(request.depth, 1, 40, 16),
           multiPv: clampInt(request.multiPv, 1, 5, 1),
-          timeMs: clampInt(request.moveTimeMs, 50, 6000, request.mate ? 900 : 1200),
+          timeMs: clampInt(request.moveTimeMs, 50, 12_000, request.mate ? 900 : 1200),
           timeoutMs
         }),
         signal: controller.signal
