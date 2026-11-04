@@ -206,9 +206,11 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     commentaryTimeoutMs: 2400
   },
   Impossible: {
-    depth: 30,
+    // One principal variation: devote the full search budget to the best move,
+    // not to weaker alternatives. Depth is a cap; actual depth depends on CPU.
+    depth: 36,
     multiPv: 1,
-    moveTimeMs: 2400,
+    moveTimeMs: 4500,
     temperature: 0,
     commentaryFallback: "Your clock bleeds before the board does.",
     selectionBias: "attacking",
@@ -217,8 +219,9 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     maxCandidateCount: 1,
     forceBestMove: true,
     clockSeconds: 20,
-    searchTimeoutMs: 3000,
-    mateScanTimeoutMs: 1100,
+    // Allow network/engine overhead beyond the allocated 4.5 s thinking time.
+    searchTimeoutMs: 6400,
+    mateScanTimeoutMs: 1500,
     commentaryTimeoutMs: 2600
   }
 };
