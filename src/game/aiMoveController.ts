@@ -123,10 +123,17 @@ export class AiMoveController {
   }
 
   setClockState(playerTimeMs: number, aiTimeMs: number, timedOutSide: PieceColor | null) {
+    // Updating the DOM 60 times/second was needlessly using CPU that the
+    // local Stockfish WASM engine could spend analyzing. Update displayed
+    // clocks only when the visible second changes or someone flags.
+    const shouldRefresh =
+      Math.ceil(this.playerTimeMs / 1000) !== Math.ceil(playerTimeMs / 1000) ||
+      Math.ceil(this.aiTimeMs / 1000) !== Math.ceil(aiTimeMs / 1000) ||
+      this.timedOutSide !== timedOutSide;
     this.playerTimeMs = playerTimeMs;
     this.aiTimeMs = aiTimeMs;
     this.timedOutSide = timedOutSide;
-    this.notify();
+    if (shouldRefresh) this.notify();
   }
 
   setTurnGuard(guard: (() => boolean) | null) {
