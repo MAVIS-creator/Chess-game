@@ -211,7 +211,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     // not to weaker alternatives. Depth is a cap; actual depth depends on CPU.
     depth: 36,
     multiPv: 1,
-    moveTimeMs: 4500,
+    moveTimeMs: 6000,
     temperature: 0,
     commentaryFallback: "Your clock bleeds before the board does.",
     selectionBias: "attacking",
@@ -221,7 +221,7 @@ export const DIFFICULTY_CONFIG: Record<BotDifficulty, DifficultyConfig> = {
     forceBestMove: true,
     clockSeconds: 15 * 60,
     // Allow network/engine overhead beyond the allocated 4.5 s thinking time.
-    searchTimeoutMs: 6400,
+    searchTimeoutMs: 14_500,
     mateScanTimeoutMs: 1500,
     commentaryTimeoutMs: 2600
   }
