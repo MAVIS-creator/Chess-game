@@ -69,8 +69,10 @@ BEGIN
           line_key, games_seen, bot_wins, human_wins, draws
         ) VALUES (
           opening_key, 1,
-          CASE WHEN NEW.result = 'loss' THEN 1 ELSE 0 END,
+          -- Match results are stored from the BOT's perspective.
+          -- win = bot victory; loss = human victory.
           CASE WHEN NEW.result = 'win' THEN 1 ELSE 0 END,
+          CASE WHEN NEW.result = 'loss' THEN 1 ELSE 0 END,
           CASE WHEN NEW.result = 'draw' THEN 1 ELSE 0 END
         )
         ON CONFLICT (line_key) DO UPDATE SET
