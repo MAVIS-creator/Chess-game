@@ -34,5 +34,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/engine.js": {
+      "maxDuration": 20
+    }
+  }
 }
