@@ -804,7 +804,7 @@ const startGame = async () => {
     }
 
     const reviewing = reviewPly !== null;
-    const board = reviewing ? controller.getReplaySnapshot(reviewPly) : snapshot;
+    const board = reviewPly === null ? snapshot : controller.getReplaySnapshot(reviewPly);
     chessScene.syncBoardState(board.pieces, reviewing ? null : snapshot.lastMove);
     chessScene.highlightSquares(
       reviewing ? null : selectedForDisplay,
@@ -966,24 +966,6 @@ const startGame = async () => {
 
   hud.bindBackToMenu(() => {
     renderMenu();
-  });
-
-  hud.bindLogout(() => {
-    void signOutPlayer().finally(() => {
-      activePlayer = null;
-      renderAuth();
-    });
-  });
-
-  hud.bindExit(() => {
-    activeSessionCleanup?.();
-    activeSessionCleanup = null;
-    window.close();
-    window.setTimeout(() => {
-      if (!window.closed) {
-        renderMenu();
-      }
-    }, 150);
   });
 
   chessScene.setSquareSelectHandler((square) => {
