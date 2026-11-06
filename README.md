@@ -27,6 +27,56 @@ The GCP engine is preferred because it can use the stronger hosted Stockfish ser
 
 The fallback is generated from the pinned `stockfish@19.0.1` npm package during local development and production builds.
 
+## Full chess moves, premoves, replay and match options
+
+Cedar Chess uses `chess.js` for the full standard chess ruleset. Players can
+play normal moves, captures, pawn double-steps, **en passant**, check, checkmate,
+both castling sides, and all four promotions (queen, rook, bishop, knight).
+Drawn chess positions (stalemate, threefold repetition, insufficient material,
+fifty-/seventy-five-move rules) are recognized by the rules engine.
+
+**Castling:** Clear the pieces between king and rook and make sure neither
+the king's current square, travel squares nor destination are in check.
+Select your king and tap **g1/g8** or **c1/c8**. You can also select the
+king and tap the corner rook, the familiar Lichess-style gesture.
+The rook moves automatically. Illegal castling is rejected.
+
+**Premoves:** While Stockfish thinks, select one of your own pieces and its
+destination. A queued premove shows distinct pink/red squares and can be
+cancelled. When the AI finishes, Cedar revalidates the move against the
+*actual new position*, automatically plays it only if legal, and otherwise
+cancels it. Promotion premoves default to queen. Only one premove is stored
+at a time; this cannot bypass chess rules or interfere with the AI clock.
+
+**Replay & PGN:** Use **Moves & replay** to see standard algebraic move
+notation (SAN), go to the opening/previous/next/latest position, and
+return to live play. Reviewing never rewinds the actual match or stops
+the 15+0 clock; it is view-only. Copy PGN or download a portable
+`.pgn` game file from Settings. After a match, **Replay game** opens
+the review controls.
+
+**Player-facing board:** 2D on physical phones, original 3D GLB on laptops.
+The board automatically faces your assigned pieces (Black on Impossible).
+The camera does not unexpectedly move during a turn. **Settings → Flip board**
+allows a manual override; desktop Settings also provides fixed 3D / Top
+perspectives and deliberate zoom. No camera/Reset buttons occupy the
+main two-button toolbar.
+
+**In-game settings:** Legal move markers, highlight preferences,
+coordinates, sound, premoves, move history, PGN, manual board flip,
+and resign/leave confirmations. Preferences are stored locally in the
+browser and do not expose account data. No leaderboard is created.
+
+**End of game:** A focused popup provides **Play again**, **Replay game**,
+**Match menu**, and **Save PGN**. Resignation records a game loss for the
+human; its confirmation prevents accidental resignations. An in-progress
+"leave game" also asks for confirmation.
+
+Automated build regression tests cover legal/blocked castling, en
+passant, promotions, candidate premoves, replay snapshots, PGN and
+checkmate. Real-device QA remains useful for drag/tap comfort and the
+GLB camera's framing.
+
 ## Device-aware chessboard and fixed 3D camera
 
 - **Phones:** Cedar Chess uses the fast flat 2D board on the landing page and

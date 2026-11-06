@@ -1,4 +1,4 @@
-import type { GamePieceState, MoveSummary, SquareId } from "../game/types";
+import type { GamePieceState, MoveSummary, PieceColor, SquareId } from "../game/types";
 import { FILES, RANKS } from "../game/types";
 import { renderFlatPiece } from "./flatPieceArtwork";
 
@@ -13,6 +13,8 @@ export class FlatChessBoard {
   private lastCaptureTargets: SquareId[] = [];
   private lastMove: MoveSummary | null = null;
   private lastCheckedKingSquare: SquareId | null = null;
+  private premoveFrom: SquareId | null = null;
+  private premoveTo: SquareId | null = null;
 
   constructor(private readonly mount: HTMLElement) {
     this.mount.innerHTML = "";
@@ -41,6 +43,15 @@ export class FlatChessBoard {
     this.onSquareSelect = handler;
   }
 
+  setPlayerColor(color: PieceColor) {
+    const shouldFlip = color === "black";
+    if (this.flipped === shouldFlip) return;
+    this.flipped = shouldFlip;
+    this.renderBoard();
+    this.syncBoardState(this.lastPieces);
+    this.highlightSquares(this.lastSelected, this.lastLegalTargets, this.lastCaptureTargets, this.lastMove, this.lastCheckedKingSquare);
+  }
+
   cycleCameraPreset() {
     this.flipped = !this.flipped;
     this.renderBoard();
@@ -52,6 +63,20 @@ export class FlatChessBoard {
       this.lastMove,
       this.lastCheckedKingSquare
     );
+    this.setPremoveHighlights(this.premoveFrom, this.premoveTo);
+  }
+
+  setPremoveHighlights(from: SquareId | null, to: SquareId | null) {
+    this.premoveFrom = from;
+    this.premoveTo = to;
+    for (const [square, button] of this.squareElements) {
+      button.classList.toggle("is-premove-from", square === from);
+      button.classList.toggle("is-premove-to", square === to);
+    }
+  }
+
+  flipBoard() {
+    this.cycleCameraPreset();
   }
 
   zoomIn() {

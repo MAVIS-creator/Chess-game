@@ -3,7 +3,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { INITIAL_PIECES } from "../game/setup";
 import { isMobileChessDevice } from "../ui/deviceLayout";
-import type { GamePieceState, MoveSummary, PieceRole, SquareId } from "../game/types";
+import type { GamePieceState, MoveSummary, PieceColor, PieceRole, SquareId } from "../game/types";
 import { ALL_SQUARES, BOARD_SURFACE_Y, SQUARE_SIZE, getSquarePosition } from "./boardLayout";
 import { buildModelRegistry, getTemplateKey, type ModelRegistry, type PieceView } from "./modelRegistry";
 
@@ -36,6 +36,7 @@ export class ChessScene {
   private registry: ModelRegistry | null = null;
   private onSquareSelect: ((square: SquareId) => void) | null = null;
   private activeCameraPreset: CameraPreset = "perspective";
+  private playerPerspective: PieceColor = "white";
 
   constructor(private readonly mount: HTMLElement, private readonly options: { preview?: boolean } = {}) {
     this.scene = new THREE.Scene();
@@ -102,6 +103,16 @@ export class ChessScene {
     this.onSquareSelect = handler;
   }
 
+  setPlayerColor(color: PieceColor) {
+    this.playerPerspective = color;
+    this.applyCameraPreset(this.activeCameraPreset);
+  }
+
+  flipBoard() {
+    this.playerPerspective = this.playerPerspective === "white" ? "black" : "white";
+    this.applyCameraPreset(this.activeCameraPreset);
+  }
+
   // Only these two intentional viewpoints are possible. Neither view
   // ever follows a move or changes unexpectedly on resize.
   setCameraPreset(preset: CameraPreset) {
@@ -111,6 +122,25 @@ export class ChessScene {
 
   cycleCameraPreset(_lastMove: MoveSummary | null) {
     this.setCameraPreset(this.activeCameraPreset === "perspective" ? "top-down" : "perspective");
+  }
+
+  setPremoveHighlights(from: SquareId | null, to: SquareId | null) {
+    for (const square of [from, to]) {
+      if (!square) continue;
+      const mesh = this.squareMeshes.get(square);
+      const indicator = this.squareIndicators.get(square);
+      if (!mesh) continue;
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      material.color.set("#d35456");
+      material.opacity = 0.35;
+      if (indicator) {
+        indicator.visible = true;
+        const indicatorMat = indicator.material as THREE.MeshBasicMaterial;
+        indicatorMat.color.set("#ff7878");
+        indicatorMat.opacity = 0.8;
+        indicator.scale.setScalar(0.95);
+      }
+    }
   }
 
   zoomIn() {
@@ -503,13 +533,13 @@ export class ChessScene {
       // Camera forward points almost straight down. Explicit +X as screen-up
       // prevents the near-vertical lookAt() roll singularity and puts Black at
       // the top, White at the bottom.
-      this.camera.up.set(1, 0, 0);
+      this.camera.up.set(this.playerPerspective === "white" ? 1 : -1, 0, 0);
       this.camera.position.set(0, 0.63, 0.001);
     } else {
       this.camera.up.set(0, 1, 0);
       // White is on the near edge. A medium-high 3/4 viewpoint keeps
       // every file and both back ranks visible without constant orbiting.
-      this.camera.position.set(-0.34, 0.37, 0.14);
+      this.camera.position.set(this.playerPerspective === "white" ? -0.34 : 0.34, 0.37, this.playerPerspective === "white" ? 0.14 : -0.14);
     }
 
     this.camera.lookAt(this.controls.target);
