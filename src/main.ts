@@ -23,7 +23,7 @@ import { ChessController } from "./game/ChessController";
 import type { GamePieceState, MoveSummary, PieceColor, PieceRole, SquareId } from "./game/types";
 import { ChessScene } from "./render/ChessScene";
 import { FlatChessBoard } from "./render/FlatChessBoard";
-import { Hud } from "./ui/Hud";
+import { Hud, type BoardPreferences } from "./ui/Hud";
 import { isMobileChessDevice } from "./ui/deviceLayout";
 
 declare global {
@@ -563,6 +563,8 @@ type BoardRenderer = {
   ) => void;
   cycleCameraPreset: (lastMove: MoveSummary | null) => void;
   setCameraPreset?: (preset: "perspective" | "top-down") => void;
+  setPlayerColor?: (color: PieceColor) => void;
+  setPremoveHighlights?: (from: SquareId | null, to: SquareId | null) => void;
   zoomIn: () => void;
   zoomOut: () => void;
   dispose: () => void;
@@ -647,6 +649,9 @@ const startGame = async () => {
     botColor: playerColor === "white" ? "black" : "white"
   });
   const hud = new Hud(hudRoot);
+  // The player's own pieces are always nearest the controls, including
+  // Impossible mode where the human is Black and Stockfish starts as White.
+  chessScene.setPlayerColor?.(playerColor);
   let lastAudibleMoveCount = 0;
   let lastAlertSignature = "";
   const baseClockMs = DIFFICULTY_CONFIG[selectedDifficulty].clockSeconds * 1000;
@@ -662,11 +667,15 @@ const startGame = async () => {
   let sessionActive = true;
   let clockStarted = false;
   const compactLayout = isMobileChessDevice();
+  let externalResult: string | null = null;
+  let reviewPly: number | null = null;
+  let premoveSelected: SquareId | null = null;
+  let queuedPremove: { from: SquareId; to: SquareId } | null = null;
 
   aiController.setPlayerIdentity(activePlayer.id, playerName);
   aiController.setDifficulty(selectedDifficulty);
   aiController.setPersonality(getPersonalityForDifficulty(selectedDifficulty).id);
-  aiController.setTurnGuard(() => timedOutSide === null);
+  aiController.setTurnGuard(() => timedOutSide === null && externalResult === null);
   aiController.setClockState(
     remainingMs[playerColor],
     remainingMs[playerColor === "white" ? "black" : "white"],
@@ -687,7 +696,7 @@ const startGame = async () => {
     // before switching clocks. Promotion choices remain on the active clock.
     // Calling this during a completed move (sync) also makes tab suspension
     // and asynchronous AI moves fair when animation frames are throttled.
-    if (!snapshot.gameOver && !timedOutSide) {
+    if (!snapshot.gameOver && !timedOutSide && !externalResult) {
       remainingMs[activeTurnColor] = Math.max(0, remainingMs[activeTurnColor] - delta);
       if (remainingMs[activeTurnColor] <= 0) {
         timedOutSide = activeTurnColor;
@@ -711,9 +720,14 @@ const startGame = async () => {
   const sync = () => {
     advanceClock();
     const snapshot = controller.getSnapshot();
-    const displayTargets = snapshot.legalTargets;
-    const selectedPiece = snapshot.selectedSquare
-      ? snapshot.pieces.find((piece) => !piece.captured && piece.square === snapshot.selectedSquare) ?? null
+    const preferences = hud.getPreferences();
+    const premoveTargets = premoveSelected
+      ? controller.getPremoveTargets(premoveSelected, playerColor)
+      : [];
+    const displayTargets = premoveSelected ? premoveTargets : snapshot.legalTargets;
+    const selectedForDisplay = premoveSelected ?? snapshot.selectedSquare;
+    const selectedPiece = selectedForDisplay
+      ? snapshot.pieces.find((piece) => !piece.captured && piece.square === selectedForDisplay) ?? null
       : null;
     const captureTargets =
       selectedPiece === null
@@ -726,7 +740,7 @@ const startGame = async () => {
           );
 
     if (snapshot.moveCount > lastAudibleMoveCount && snapshot.lastMoveSoundCue) {
-      soundboard.playCue(snapshot.lastMoveSoundCue);
+      if (preferences.sounds) soundboard.playCue(snapshot.lastMoveSoundCue);
       lastAudibleMoveCount = snapshot.moveCount;
     }
 
@@ -740,20 +754,20 @@ const startGame = async () => {
       if (timedOutSide) {
       } else if (snapshot.gameOver) {
         if (snapshot.statusText.toLowerCase().includes("checkmate")) {
-          soundboard.playCue("checkmate");
+          if (preferences.sounds) soundboard.playCue("checkmate");
         } else if (snapshot.statusText.toLowerCase().includes("stalemate")) {
-          soundboard.playCue("stalemate");
+          if (preferences.sounds) soundboard.playCue("stalemate");
         }
       } else if (snapshot.inCheck && snapshot.moveCount > 0) {
-        soundboard.playCue("check");
+        if (preferences.sounds) soundboard.playCue("check");
       }
 
       lastAlertSignature = nextAlertSignature;
     }
 
-    if (timedOutSide || snapshot.gameOver) {
-      const outcomeSignature = `${snapshot.moveCount}:${snapshot.statusText}:${timedOutSide ?? "none"}`;
-      const historyStatusText = formatMatchHistoryStatus(
+    if (timedOutSide || snapshot.gameOver || externalResult) {
+      const outcomeSignature = `${snapshot.moveCount}:${snapshot.statusText}:${timedOutSide ?? "none"}:${externalResult ?? ""}`;
+      const historyStatusText = externalResult ?? formatMatchHistoryStatus(
         snapshot.statusText,
         playerName,
         playerColor,
@@ -761,7 +775,10 @@ const startGame = async () => {
         timedOutSide
       );
       if (outcomeSignature !== recordedOutcomeSignature) {
-        if (timedOutSide) {
+        if (externalResult) {
+          aiController.recordMatchOutcome("win", outcomeSignature);
+          aiController.recordMatchHistory("win", snapshot.moveCount, externalResult, outcomeSignature);
+        } else if (timedOutSide) {
           aiController.recordMatchOutcome(timedOutSide === playerColor ? "win" : "loss", outcomeSignature);
           aiController.recordMatchHistory(
             timedOutSide === playerColor ? "win" : "loss",
@@ -786,23 +803,59 @@ const startGame = async () => {
       }
     }
 
-    chessScene.syncBoardState(snapshot.pieces, snapshot.lastMove);
+    const reviewing = reviewPly !== null;
+    const board = reviewing ? controller.getReplaySnapshot(reviewPly) : snapshot;
+    chessScene.syncBoardState(board.pieces, reviewing ? null : snapshot.lastMove);
     chessScene.highlightSquares(
-      snapshot.selectedSquare,
-      displayTargets,
-      captureTargets,
-      snapshot.lastMove,
-      snapshot.checkedKingSquare
+      reviewing ? null : selectedForDisplay,
+      reviewing || !preferences.legalMoves ? [] : displayTargets,
+      reviewing || !preferences.legalMoves ? [] : captureTargets,
+      preferences.highlights ? board.lastMove : null,
+      board.checkedKingSquare
     );
-    hud.renderStatus(snapshot, aiController.getState(), compactLayout);
+    chessScene.setPremoveHighlights?.(reviewing ? null : queuedPremove?.from ?? null, reviewing ? null : queuedPremove?.to ?? null);
+    boardStage.classList.toggle("cedar-hide-coordinates", !preferences.coordinates);
+    boardStage.classList.toggle("cedar-hide-highlights", !preferences.highlights);
+    hud.renderStatus(snapshot, aiController.getState(), compactLayout, {
+      history: controller.getMoveHistory(),
+      reviewPly,
+      premove: queuedPremove,
+      selectingPremove: premoveSelected,
+      externalResult
+    });
   };
 
   aiController.setStateListener(sync);
 
   const syncAndRunBotTurn = async () => {
+    if (!sessionActive || externalResult || timedOutSide) return;
     sync();
     const moved = await aiController.maybeRunBotTurn();
-    if (moved) {
+    if (!sessionActive) return;
+    if (moved) sync();
+
+    // A premove is attempted only AFTER the AI turn finishes. The move
+    // is strictly checked against the new real chess position, and
+    // cancelled if Stockfish changed the board in an unexpected way.
+    if (moved && queuedPremove && !externalResult && !timedOutSide) {
+      const premove = queuedPremove;
+      queuedPremove = null;
+      premoveSelected = null;
+      if (controller.getSnapshot().currentTurn === playerColor &&
+          controller.hasLegalMove(premove.from, premove.to)) {
+        const destination = controller.resolveCastleDestination(premove.from, premove.to) ?? premove.to;
+        const pawn = controller.getSnapshot().pieces.find(p => !p.captured && p.square === premove.from);
+        const promoting = pawn?.role === "pawn" && (destination.endsWith("8") || destination.endsWith("1"));
+        const made = controller.applyUciMove(`${premove.from}${destination}${promoting ? "q" : ""}`);
+        if (made) {
+          remainingMs[playerColor] = Math.max(0, remainingMs[playerColor] - 100);
+          if (remainingMs[playerColor] <= 0) timedOutSide = playerColor;
+          if (!timedOutSide) aiController.reactToPlayerMove();
+          sync();
+          if (!timedOutSide) void syncAndRunBotTurn();
+          return;
+        }
+      }
       sync();
     }
   };
@@ -810,6 +863,12 @@ const startGame = async () => {
   hud.bindReset(() => {
     controller.resetGame();
     aiController.reset();
+    hud.resetForNewMatch();
+    reviewPly = null;
+    queuedPremove = null;
+    premoveSelected = null;
+    externalResult = null;
+    chessScene.setPlayerColor?.(playerColor);
     lastAudibleMoveCount = 0;
     remainingMs.white = baseClockMs;
     remainingMs.black = baseClockMs;
@@ -830,9 +889,63 @@ const startGame = async () => {
   });
 
   hud.bindPromotion((role: PieceRole) => {
-    controller.promotePiece(role);
+    if (externalResult || timedOutSide) return;
+    const moved = controller.promotePiece(role);
     sync();
-    void syncAndRunBotTurn();
+    if (moved) {
+      aiController.reactToPlayerMove();
+      void syncAndRunBotTurn();
+    }
+  });
+
+  hud.bindReplay((ply) => {
+    reviewPly = ply;
+    sync();
+  });
+
+  hud.bindResign(() => {
+    if (externalResult || timedOutSide || controller.getSnapshot().gameOver) return;
+    externalResult = `${playerName} resigned. AI wins.`;
+    queuedPremove = null;
+    premoveSelected = null;
+    reviewPly = null;
+    sync();
+  });
+
+  hud.bindCancelPremove(() => {
+    queuedPremove = null;
+    premoveSelected = null;
+    sync();
+  });
+
+  hud.bindPreference((key: keyof BoardPreferences, enabled) => {
+    if (key === "premoves" && !enabled) {
+      queuedPremove = null;
+      premoveSelected = null;
+    }
+    sync();
+  });
+
+  hud.bindCopyPgn(() => {
+    const pgn = controller.getPgn() || "*";
+    void navigator.clipboard.writeText(pgn).catch(() => {
+      const textarea = document.createElement("textarea");
+      textarea.value = pgn;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    });
+  });
+
+  hud.bindDownloadPgn(() => {
+    const data = new Blob([controller.getPgn() || "*"], { type: "application/x-chess-pgn" });
+    const url = URL.createObjectURL(data);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "cedar-chess-game.pgn";
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
   });
 
   hud.bindCycleCamera(() => {
@@ -874,17 +987,36 @@ const startGame = async () => {
   });
 
   chessScene.setSquareSelectHandler((square) => {
-    if (timedOutSide || !aiController.canPlayerInteract()) {
+    const snapshot = controller.getSnapshot();
+    if (!sessionActive || timedOutSide || externalResult || snapshot.gameOver ||
+        reviewPly !== null || snapshot.pendingPromotion) return;
+
+    if (snapshot.currentTurn === playerColor && aiController.canPlayerInteract()) {
+      queuedPremove = null;
+      premoveSelected = null;
+      const moved = controller.selectSquare(square);
+      if (moved) aiController.reactToPlayerMove();
+      sync();
+      if (moved) void syncAndRunBotTurn();
       return;
     }
 
-    const moved = controller.selectSquare(square);
-    if (moved) {
-      aiController.reactToPlayerMove();
-    }
-    sync();
-    if (moved) {
-      void syncAndRunBotTurn();
+    if (snapshot.currentTurn !== playerColor && hud.getPreferences().premoves) {
+      const ownPiece = snapshot.pieces.find(p => !p.captured && p.square === square && p.color === playerColor);
+      if (premoveSelected) {
+        const from = premoveSelected;
+        const destination = controller.resolveCastleDestination(from, square) ?? square;
+        const targets = controller.getPremoveTargets(from, playerColor);
+        if (targets.includes(destination)) {
+          queuedPremove = { from, to: destination };
+          premoveSelected = null;
+          sync();
+          return;
+        }
+      }
+      premoveSelected = ownPiece ? square : null;
+      queuedPremove = null;
+      sync();
     }
   });
 
