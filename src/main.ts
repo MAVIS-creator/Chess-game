@@ -904,6 +904,12 @@ const startGame = async () => {
 
   hud.bindReplay((ply) => {
     reviewPly = ply;
+    // Do not commit a queued move while the user is inspecting history.
+    // A live game clock keeps running independently of this view.
+    if (ply !== null) {
+      queuedPremove = null;
+      premoveSelected = null;
+    }
     sync();
   });
 
