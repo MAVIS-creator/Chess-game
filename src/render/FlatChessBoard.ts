@@ -13,6 +13,8 @@ export class FlatChessBoard {
   private lastCaptureTargets: SquareId[] = [];
   private lastMove: MoveSummary | null = null;
   private lastCheckedKingSquare: SquareId | null = null;
+  private premoveFrom: SquareId | null = null;
+  private premoveTo: SquareId | null = null;
 
   constructor(private readonly mount: HTMLElement) {
     this.mount.innerHTML = "";
@@ -61,6 +63,16 @@ export class FlatChessBoard {
       this.lastMove,
       this.lastCheckedKingSquare
     );
+    this.setPremoveHighlights(this.premoveFrom, this.premoveTo);
+  }
+
+  setPremoveHighlights(from: SquareId | null, to: SquareId | null) {
+    this.premoveFrom = from;
+    this.premoveTo = to;
+    for (const [square, button] of this.squareElements) {
+      button.classList.toggle("is-premove-from", square === from);
+      button.classList.toggle("is-premove-to", square === to);
+    }
   }
 
   zoomIn() {
