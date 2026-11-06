@@ -832,7 +832,10 @@ const startGame = async () => {
     sync();
     const moved = await aiController.maybeRunBotTurn();
     if (!sessionActive) return;
-    if (moved) sync();
+    if (moved) {
+      if (!queuedPremove && premoveSelected) premoveSelected = null;
+      sync();
+    }
 
     // A premove is attempted only AFTER the AI turn finishes. The move
     // is strictly checked against the new real chess position, and
