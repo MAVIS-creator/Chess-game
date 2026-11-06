@@ -1,4 +1,4 @@
-import type { GamePieceState, MoveSummary, SquareId } from "../game/types";
+import type { GamePieceState, MoveSummary, PieceColor, SquareId } from "../game/types";
 import { FILES, RANKS } from "../game/types";
 import { renderFlatPiece } from "./flatPieceArtwork";
 
@@ -39,6 +39,15 @@ export class FlatChessBoard {
 
   setSquareSelectHandler(handler: (square: SquareId) => void) {
     this.onSquareSelect = handler;
+  }
+
+  setPlayerColor(color: PieceColor) {
+    const shouldFlip = color === "black";
+    if (this.flipped === shouldFlip) return;
+    this.flipped = shouldFlip;
+    this.renderBoard();
+    this.syncBoardState(this.lastPieces);
+    this.highlightSquares(this.lastSelected, this.lastLegalTargets, this.lastCaptureTargets, this.lastMove, this.lastCheckedKingSquare);
   }
 
   cycleCameraPreset() {
