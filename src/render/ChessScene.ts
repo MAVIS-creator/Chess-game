@@ -108,6 +108,11 @@ export class ChessScene {
     this.applyCameraPreset(this.activeCameraPreset);
   }
 
+  flipBoard() {
+    this.playerPerspective = this.playerPerspective === "white" ? "black" : "white";
+    this.applyCameraPreset(this.activeCameraPreset);
+  }
+
   // Only these two intentional viewpoints are possible. Neither view
   // ever follows a move or changes unexpectedly on resize.
   setCameraPreset(preset: CameraPreset) {
