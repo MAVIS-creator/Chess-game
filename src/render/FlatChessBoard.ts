@@ -75,6 +75,10 @@ export class FlatChessBoard {
     }
   }
 
+  flipBoard() {
+    this.cycleCameraPreset();
+  }
+
   zoomIn() {
     // Intentionally empty for the flat board renderer.
   }
