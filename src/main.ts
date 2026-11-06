@@ -562,6 +562,7 @@ type BoardRenderer = {
     checkedKingSquare?: SquareId | null
   ) => void;
   cycleCameraPreset: (lastMove: MoveSummary | null) => void;
+  flipBoard?: () => void;
   setCameraPreset?: (preset: "perspective" | "top-down") => void;
   setPlayerColor?: (color: PieceColor) => void;
   setPremoveHighlights?: (from: SquareId | null, to: SquareId | null) => void;
@@ -952,7 +953,8 @@ const startGame = async () => {
   });
 
   hud.bindCycleCamera(() => {
-    chessScene.cycleCameraPreset(controller.getSnapshot().lastMove);
+    if (chessScene.flipBoard) chessScene.flipBoard();
+    else chessScene.cycleCameraPreset(controller.getSnapshot().lastMove);
   });
 
   hud.bindCameraView((view) => {
