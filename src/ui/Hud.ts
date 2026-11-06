@@ -119,8 +119,8 @@ export class Hud {
       details.reviewPly !== null ? "Reviewing moves" :
       snapshot.currentTurn === botState.playerColor ? `${botState.playerName}'s turn` :
       botState.thinking ? botState.thinkingStage ?? "AI is thinking" : "AI to move";
-    const result = details.externalResult ??
-      (timeoutWinner ? `${escapeHtml(timeoutWinner)} wins on time.` : escapeHtml(snapshot.statusText));
+    const result = escapeHtml(details.externalResult ??
+      (timeoutWinner ? `${timeoutWinner} wins on time.` : snapshot.statusText));
     const humanInCheck = snapshot.inCheck && snapshot.currentTurn === botState.playerColor;
     const aiInCheck = snapshot.inCheck && snapshot.currentTurn === botState.botColor;
     const turnNotes = details.reviewPly !== null
@@ -240,6 +240,10 @@ export class Hud {
         </div>
       </section>`;
 
+    const moveScrollTop = this.root.querySelector(".cedar-moves-list")?.scrollTop ?? 0;
+    const historyScrollTop = this.root.querySelector(".cedar-history-panel")?.scrollTop ?? 0;
+    const settingsScrollTop = this.root.querySelector(".cedar-settings")?.scrollTop ?? 0;
+
     this.root.innerHTML = `
       <div class="hud-frame">
         ${clocks.top}
@@ -252,7 +256,9 @@ export class Hud {
               <strong>White ${snapshot.pieces.filter(p => p.captured && p.color === "white").length}
               · Black ${snapshot.pieces.filter(p => p.captured && p.color === "black").length}</strong></div>
           </div>` : ""}
-        <div class="info-note"><strong>${escapeHtml(turnNotes)}</strong></div>
+        ${!compactLayout || details.premove || details.selectingPremove || details.reviewPly !== null
+          ? `<div class="info-note cedar-play-hint"><strong>${escapeHtml(turnNotes)}</strong></div>`
+          : ""}
         ${clocks.bottom}
         <div class="action-strip ${compactLayout ? "compact-actions" : "desktop-actions cedar-main-actions"}">
           <button class="icon-button" data-action="toggle-settings" type="button" aria-label="Open game options" aria-expanded="${this.menuOpen}">⚙</button>
@@ -266,6 +272,12 @@ export class Hud {
       ${promotion}
       ${modal}
     `;
+    const moveList = this.root.querySelector(".cedar-moves-list");
+    if (moveList) moveList.scrollTop = moveScrollTop;
+    const historyPanel = this.root.querySelector(".cedar-history-panel");
+    if (historyPanel) historyPanel.scrollTop = historyScrollTop;
+    const settingsPanel = this.root.querySelector(".cedar-settings");
+    if (settingsPanel) settingsPanel.scrollTop = settingsScrollTop;
   }
 
   private handleClick = (event: Event) => {
