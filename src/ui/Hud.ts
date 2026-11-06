@@ -50,8 +50,6 @@ export class Hud {
   private onZoomIn: (() => void) | null = null;
   private onZoomOut: (() => void) | null = null;
   private onBackToMenu: (() => void) | null = null;
-  private onLogout: (() => void) | null = null;
-  private onExit: (() => void) | null = null;
   private onResign: (() => void) | null = null;
   private onReplay: ((ply: number | null) => void) | null = null;
   private onCopyPgn: (() => void) | null = null;
@@ -84,8 +82,6 @@ export class Hud {
   bindZoomIn(fn: () => void) { this.onZoomIn = fn; }
   bindZoomOut(fn: () => void) { this.onZoomOut = fn; }
   bindBackToMenu(fn: () => void) { this.onBackToMenu = fn; }
-  bindLogout(fn: () => void) { this.onLogout = fn; }
-  bindExit(fn: () => void) { this.onExit = fn; }
   bindResign(fn: () => void) { this.onResign = fn; }
   bindReplay(fn: (ply: number | null) => void) { this.onReplay = fn; }
   bindCopyPgn(fn: () => void) { this.onCopyPgn = fn; }
