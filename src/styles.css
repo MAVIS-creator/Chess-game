@@ -2155,3 +2155,21 @@ h1 {
   .cedar-settings, .cedar-history-panel { max-height:58dvh; }
   .cedar-settings-actions { gap:0.35rem; }
 }
+
+
+/* Premove/replay hint lives above the player's clock on small screens,
+   never over the turn pills or the chess pieces. */
+@media (max-width: 640px) {
+  .play-hud .cedar-play-hint {
+    top: auto !important;
+    bottom: calc(max(0.6rem, env(safe-area-inset-bottom)) + 8.7rem);
+    width: min(31rem, calc(100vw - 1rem));
+    padding: 0.42rem 0.65rem;
+    border-radius: 0.8rem;
+    z-index: 6;
+  }
+  .play-hud .cedar-play-hint strong {
+    font-size: 0.74rem;
+    line-height: 1.22;
+  }
+}
