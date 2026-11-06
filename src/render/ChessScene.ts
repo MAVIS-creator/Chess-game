@@ -119,6 +119,25 @@ export class ChessScene {
     this.setCameraPreset(this.activeCameraPreset === "perspective" ? "top-down" : "perspective");
   }
 
+  setPremoveHighlights(from: SquareId | null, to: SquareId | null) {
+    for (const square of [from, to]) {
+      if (!square) continue;
+      const mesh = this.squareMeshes.get(square);
+      const indicator = this.squareIndicators.get(square);
+      if (!mesh) continue;
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      material.color.set("#d35456");
+      material.opacity = 0.35;
+      if (indicator) {
+        indicator.visible = true;
+        const indicatorMat = indicator.material as THREE.MeshBasicMaterial;
+        indicatorMat.color.set("#ff7878");
+        indicatorMat.opacity = 0.8;
+        indicator.scale.setScalar(0.95);
+      }
+    }
+  }
+
   zoomIn() {
     const offset = this.camera.position.clone().sub(this.controls.target);
     const nextLength = Math.max(this.controls.minDistance, offset.length() - 0.08);
