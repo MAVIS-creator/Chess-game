@@ -69,13 +69,19 @@ export class ChessController {
       return false;
     }
 
-    if (this.selectedSquare && this.legalTargets.includes(square)) {
-      if (this.requiresPromotion(this.selectedSquare, square)) {
-        this.pendingPromotion = { from: this.selectedSquare, to: square };
+    // Both familiar castling gestures work: king to g/c-file (standard)
+    // or king onto its own corner rook (Chess.com/Lichess style).
+    const destination = this.selectedSquare
+      ? this.resolveCastleDestination(this.selectedSquare, square) ?? square
+      : square;
+
+    if (this.selectedSquare && this.legalTargets.includes(destination)) {
+      if (this.requiresPromotion(this.selectedSquare, destination)) {
+        this.pendingPromotion = { from: this.selectedSquare, to: destination };
         return false;
       }
 
-      return this.performMove(this.selectedSquare, square);
+      return this.performMove(this.selectedSquare, destination);
     }
 
     const piece = this.getPieceAtSquare(square);
@@ -132,6 +138,72 @@ export class ChessController {
     return this.chess.history({ verbose: true }).map((move) => `${move.from}${move.to}${move.promotion ?? ""}`);
   }
 
+  getMoveHistory() {
+    return this.chess.history({ verbose: true }).map((move, index) => ({
+      ply: index + 1,
+      san: move.san,
+      uci: `${move.from}${move.to}${move.promotion ?? ""}`,
+      from: move.from as SquareId,
+      to: move.to as SquareId
+    }));
+  }
+
+  getPgn() {
+    return this.chess.pgn();
+  }
+
+  /**
+   * Review any historical ply without touching the live chess clock,
+   * game position, or opponent. Ply zero is the starting position.
+   */
+  getReplaySnapshot(ply: number): GameSnapshot {
+    const replay = new ChessController();
+    const moves = this.getMoveHistoryUci();
+    const end = Math.max(0, Math.min(moves.length, Math.floor(ply)));
+    for (let index = 0; index < end; index += 1) {
+      if (!replay.applyUciMove(moves[index])) throw new Error("Invalid replay move.");
+    }
+    return replay.getSnapshot();
+  }
+
+  /**
+   * One queued premove can be entered during the bot's turn. We preview
+   * moves by granting the human side the move on a temporary position,
+   * then strictly revalidate against the REAL position after the bot moves.
+   */
+  getPremoveTargets(from: SquareId, color: PieceColor): SquareId[] {
+    if (this.getTurn() === color || this.chess.isGameOver()) return [];
+    const occupant = this.getPieceAtSquare(from);
+    if (!occupant || occupant.color !== color) return [];
+    const fen = this.chess.fen().split(" ");
+    fen[1] = color === "white" ? "w" : "b";
+    fen[3] = "-";
+    try {
+      const preview = new Chess(fen.join(" "));
+      return preview.moves({ square: from, verbose: true }).map(move => move.to as SquareId);
+    } catch {
+      return [];
+    }
+  }
+
+  resolveCastleDestination(from: SquareId, clicked: SquareId): SquareId | null {
+    const moving = this.getPieceAtSquare(from);
+    const rook = this.getPieceAtSquare(clicked);
+    if (!moving || moving.role !== "king" || !rook || rook.role !== "rook" || rook.color !== moving.color) {
+      return null;
+    }
+    const rank = moving.color === "white" ? "1" : "8";
+    if (from !== `e${rank}` || !["a", "h"].includes(clicked[0]) || clicked[1] !== rank) return null;
+    return `${clicked[0] === "h" ? "g" : "c"}${rank}` as SquareId;
+  }
+
+  hasLegalMove(from: SquareId, to: SquareId, promotion?: PieceRole) {
+    const dest = this.resolveCastleDestination(from, to) ?? to;
+    return this.chess.moves({ square: from, verbose: true }).some(
+      move => move.to === dest && (!move.promotion || (promotion ? CHESS_PROMOTION_MAP[promotion] : "q") === move.promotion)
+    );
+  }
+
   getSnapshot(): GameSnapshot {
     return {
       pieces: this.pieces.map((piece) => ({ ...piece })),
@@ -150,11 +222,18 @@ export class ChessController {
   }
 
   private performMove(from: SquareId, to: SquareId, promotion?: PieceRole) {
-    const move = this.chess.move({
-      from,
-      to,
-      promotion: promotion ? CHESS_PROMOTION_MAP[promotion] : undefined
-    });
+    // chess.js throws for invalid moves. A stale premove or malformed UCI
+    // should fail harmlessly, never crash a running game.
+    let move: ReturnType<Chess["move"]>;
+    try {
+      move = this.chess.move({
+        from,
+        to,
+        promotion: promotion ? CHESS_PROMOTION_MAP[promotion] : undefined
+      });
+    } catch {
+      return false;
+    }
 
     if (!move) {
       return false;
