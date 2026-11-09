@@ -52,6 +52,7 @@ export class Hud {
   private onBackToMenu: (() => void) | null = null;
   private onResign: (() => void) | null = null;
   private onReplay: ((ply: number | null) => void) | null = null;
+  private onUndo: (() => void) | null = null;
   private onCopyPgn: (() => void) | null = null;
   private onDownloadPgn: (() => void) | null = null;
   private onCancelPremove: (() => void) | null = null;
@@ -84,6 +85,7 @@ export class Hud {
   bindBackToMenu(fn: () => void) { this.onBackToMenu = fn; }
   bindResign(fn: () => void) { this.onResign = fn; }
   bindReplay(fn: (ply: number | null) => void) { this.onReplay = fn; }
+  bindUndo(fn: () => void) { this.onUndo = fn; }
   bindCopyPgn(fn: () => void) { this.onCopyPgn = fn; }
   bindDownloadPgn(fn: () => void) { this.onDownloadPgn = fn; }
   bindCancelPremove(fn: () => void) { this.onCancelPremove = fn; }
@@ -160,7 +162,7 @@ export class Hud {
           </div>
         </div></div>`
       : ended && !this.endDismissed
-        ? `<div class="cedar-modal-backdrop"><div class="cedar-game-modal" role="dialog" aria-modal="true" aria-label="Match complete">
+        ? `<div class="cedar-modal-backdrop cedar-result-backdrop"><div class="cedar-game-modal" role="dialog" aria-modal="true" aria-label="Match complete">
             <span class="hero-label">Game over</span>
             <h2>${result}</h2>
             <p>${details.history.length} moves played · 15+0 rapid</p>
@@ -218,12 +220,12 @@ export class Hud {
     const history = `
       <section class="cedar-history-panel" role="region" aria-label="Moves and replay">
         <div class="cedar-history-heading">
-          <strong>Moves & replay</strong>
+          <strong>Board replay</strong>
           <button type="button" data-action="close-history">×</button>
         </div>
         <p>${details.reviewPly === null ? "Live position" : `Position ${details.reviewPly} of ${details.history.length}`}
         · ${ended ? "Review this finished game." : "Your game clock continues while reviewing."}</p>
-        <div class="cedar-moves-list">
+        <div class="cedar-moves-list" hidden>
           ${details.history.length ? details.history.map(move => `
             <button type="button" class="${details.reviewPly === move.ply ? "is-current" : ""}"
               data-action="replay-ply" data-ply="${move.ply}">
@@ -232,10 +234,10 @@ export class Hud {
             </button>`).join("") : '<span>Moves will appear here after the opening move.</span>'}
         </div>
         <div class="cedar-replay-controls">
-          <button type="button" data-action="review-start" title="Start">⏮</button>
-          <button type="button" data-action="review-prev" title="Previous">◀</button>
-          <button type="button" data-action="review-next" title="Next">▶</button>
-          <button type="button" data-action="review-end" title="End">⏭</button>
+          <button type="button" data-action="review-start" title="Rewind to opening">⏮ Start</button>
+          <button type="button" data-action="review-prev" title="Step back one move">← Back</button>
+          <button type="button" data-action="review-next" title="Step forward one move">Forward →</button>
+          <button type="button" data-action="review-end" title="Jump to latest move">End ⏭</button>
           <button type="button" data-action="review-live">Live board</button>
         </div>
       </section>`;
@@ -262,7 +264,8 @@ export class Hud {
         ${clocks.bottom}
         <div class="action-strip ${compactLayout ? "compact-actions" : "desktop-actions cedar-main-actions"}">
           <button class="icon-button" data-action="toggle-settings" type="button" aria-label="Open game options" aria-expanded="${this.menuOpen}">⚙</button>
-          <button class="pill-button secondary" data-action="open-history" type="button">Moves & replay</button>
+          <button class="pill-button secondary" data-action="open-history" type="button">Replay</button>
+          ${!ended && details.history.length && !botState.thinking ? '<button class="pill-button secondary" data-action="undo-move" type="button" title="Take back your last move and the AI reply">↶ Undo</button>' : ""}
           ${details.premove ? '<button class="icon-button" data-action="cancel-premove" type="button" title="Cancel premove">✕</button>' : ""}
         </div>
       </div>
@@ -309,6 +312,7 @@ export class Hud {
     if (action === "ask-leave") { this.confirmAction = "leave"; this.menuOpen = false; this.rerender(); return; }
     if (action === "confirm-resign") { this.confirmAction = null; this.onResign?.(); return; }
     if (action === "confirm-leave") { this.confirmAction = null; this.onBackToMenu?.(); return; }
+    if (action === "undo-move") { this.onUndo?.(); return; }
     if (action === "reset") { this.resetForNewMatch(); this.onReset?.(); return; }
     if (action === "back-to-menu") { this.onBackToMenu?.(); return; }
     if (action === "cycle-camera") { this.onCycleCamera?.(); return; }
