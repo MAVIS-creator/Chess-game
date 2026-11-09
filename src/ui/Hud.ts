@@ -207,7 +207,7 @@ export class Hud {
             <button type="button" data-action="view-top-down">Top view</button>
             <button type="button" data-action="zoom-in">Zoom +</button>
             <button type="button" data-action="zoom-out">Zoom −</button>` : ""}
-          <button type="button" data-action="open-history">📜 Move history</button>
+          <button type="button" data-action="open-history">↶ Replay board positions</button>
           <button type="button" data-action="copy-pgn">Copy PGN</button>
           <button type="button" data-action="download-pgn">Download PGN</button>
           ${details.premove ? '<button type="button" data-action="cancel-premove">Cancel premove</button>' : ""}
@@ -225,14 +225,7 @@ export class Hud {
         </div>
         <p>${details.reviewPly === null ? "Live position" : `Position ${details.reviewPly} of ${details.history.length}`}
         · ${ended ? "Review this finished game." : "Your game clock continues while reviewing."}</p>
-        <div class="cedar-moves-list" hidden>
-          ${details.history.length ? details.history.map(move => `
-            <button type="button" class="${details.reviewPly === move.ply ? "is-current" : ""}"
-              data-action="replay-ply" data-ply="${move.ply}">
-              ${move.ply % 2 ? `${Math.ceil(move.ply / 2)}.` : `${Math.ceil(move.ply / 2)}…`}
-              ${escapeHtml(move.san)}
-            </button>`).join("") : '<span>Moves will appear here after the opening move.</span>'}
-        </div>
+        <!-- Replay controls step through positions without obstructing the board with move notation. -->
         <div class="cedar-replay-controls">
           <button type="button" data-action="review-start" title="Rewind to opening">⏮ Start</button>
           <button type="button" data-action="review-prev" title="Step back one move">← Back</button>
@@ -242,7 +235,6 @@ export class Hud {
         </div>
       </section>`;
 
-    const moveScrollTop = this.root.querySelector(".cedar-moves-list")?.scrollTop ?? 0;
     const historyScrollTop = this.root.querySelector(".cedar-history-panel")?.scrollTop ?? 0;
     const settingsScrollTop = this.root.querySelector(".cedar-settings")?.scrollTop ?? 0;
 
@@ -265,7 +257,7 @@ export class Hud {
         <div class="action-strip ${compactLayout ? "compact-actions" : "desktop-actions cedar-main-actions"}">
           <button class="icon-button" data-action="toggle-settings" type="button" aria-label="Open game options" aria-expanded="${this.menuOpen}">⚙</button>
           <button class="pill-button secondary" data-action="open-history" type="button">Replay</button>
-          ${!ended && details.history.length && !botState.thinking ? '<button class="pill-button secondary" data-action="undo-move" type="button" title="Take back your last move and the AI reply">↶ Undo</button>' : ""}
+          ${!ended && details.history.length >= (snapshot.currentTurn === botState.playerColor ? 2 : 1) ? '<button class="pill-button secondary" data-action="undo-move" type="button" title="Undo your last move (and the AI response, if already played)">↶ Undo</button>' : ""}
           ${details.premove ? '<button class="icon-button" data-action="cancel-premove" type="button" title="Cancel premove">✕</button>' : ""}
         </div>
       </div>
@@ -275,8 +267,6 @@ export class Hud {
       ${promotion}
       ${modal}
     `;
-    const moveList = this.root.querySelector(".cedar-moves-list");
-    if (moveList) moveList.scrollTop = moveScrollTop;
     const historyPanel = this.root.querySelector(".cedar-history-panel");
     if (historyPanel) historyPanel.scrollTop = historyScrollTop;
     const settingsPanel = this.root.querySelector(".cedar-settings");
