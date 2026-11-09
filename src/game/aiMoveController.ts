@@ -252,8 +252,8 @@ export class AiMoveController {
   async maybeRunBotTurn() {
     // A cancelled engine request may still be resolving: serialize access to
     // the underlying local Stockfish worker to avoid overlapping searches.
-    const prior = this.activeTurn;
-    if (prior) {
+    while (this.activeTurn) {
+      const prior = this.activeTurn;
       try { await prior; } catch { /* A previous failed search must not block a new game. */ }
     }
     const task = this.runBotTurn();
