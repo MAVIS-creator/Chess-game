@@ -917,8 +917,8 @@ const startGame = async () => {
   });
 
   hud.bindUndo(() => {
-    // Never change the position while Stockfish is calculating a move.
-    if (aiController.getState().thinking || controller.getSnapshot().gameOver || timedOutSide || externalResult) return;
+    // AI work is invalidated by reset; an old engine result cannot play after undo.
+    if (controller.getSnapshot().gameOver || timedOutSide || externalResult) return;
     const moves = controller.getMoveHistoryUci();
     const lastPlayerPly = moves.length - (controller.getSnapshot().currentTurn === playerColor ? 2 : 1);
     if (lastPlayerPly < 0) return;
