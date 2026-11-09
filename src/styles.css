@@ -2077,6 +2077,15 @@ h1 {
   backdrop-filter:blur(5px);
   pointer-events:auto;
 }
+/* Match results should leave the finished position clearly visible. */
+.cedar-result-backdrop {
+  background:transparent;
+  backdrop-filter:none;
+  pointer-events:none;
+  place-items:end center;
+}
+.cedar-result-backdrop .cedar-game-modal { pointer-events:auto; max-height:45dvh; padding:1rem; }
+
 .cedar-game-modal {
   display:grid;
   justify-items:center;
