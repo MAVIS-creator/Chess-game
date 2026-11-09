@@ -48,32 +48,33 @@ cancelled. When the AI finishes, Cedar revalidates the move against the
 cancels it. Promotion premoves default to queen. Only one premove is stored
 at a time; this cannot bypass chess rules or interfere with the AI clock.
 
-**Replay & PGN:** Use **Moves & replay** to see standard algebraic move
-notation (SAN), go to the opening/previous/next/latest position, and
-return to live play. Reviewing never rewinds the actual match or stops
-the 15+0 clock; it is view-only. Copy PGN or download a portable
-`.pgn` game file from Settings. After a match, **Replay game** opens
-the review controls.
+**Replay, undo & PGN:** Use **Replay** to navigate the board itself
+with **Start**, **Back**, **Forward**, **End**, and **Live board** controls,
+without a large move-notation list. Replay is view-only: the real 15+0
+clock keeps running while you review. During an active game, **Undo**
+takes back your last move, plus the AI reply if it has already played.
+An in-flight AI result is invalidated before undo; elapsed clock time
+is not refunded. Copy PGN or download a portable `.pgn` file in Settings.
+After a match, **Replay game** opens the same board-navigation controls.
 
 **Player-facing board:** 2D on physical phones, original 3D GLB on laptops.
-The board automatically faces your assigned pieces (Black on Impossible).
+Choose White or Black for any difficulty, including Impossible; the board automatically faces your pieces.
 The camera does not unexpectedly move during a turn. **Settings → Flip board**
 allows a manual override; desktop Settings also provides fixed 3D / Top
-perspectives and deliberate zoom. No camera/Reset buttons occupy the
-main two-button toolbar.
+perspectives and deliberate zoom. The main toolbar provides Replay and, when a takeback is available, Undo.
 
 **In-game settings:** Legal move markers, highlight preferences,
 coordinates, sound, premoves, move history, PGN, manual board flip,
 and resign/leave confirmations. Preferences are stored locally in the
 browser and do not expose account data. No leaderboard is created.
 
-**End of game:** A focused popup provides **Play again**, **Replay game**,
+**End of game:** A non-blurred result popup provides **Play again**, **Replay game**,
 **Match menu**, and **Save PGN**. Resignation records a game loss for the
 human; its confirmation prevents accidental resignations. An in-progress
 "leave game" also asks for confirmation.
 
 Automated build regression tests cover legal/blocked castling, en
-passant, promotions, candidate premoves, replay snapshots, PGN and
+passant, promotions, candidate premoves, replay snapshots, undo restoration, PGN and
 checkmate. Real-device QA remains useful for drag/tap comfort and the
 GLB camera's framing.
 
@@ -190,7 +191,7 @@ match, so Impossible is intentionally extremely challenging but
 - `Hard` — sharp and consistent.
 - `Boss Mode` — aggressive and punishing.
 - `Nightmare Mode` — extremely strong with rank-1 engine selection.
-- `Impossible` — the strongest mode. Stockfish uses the deepest current search budget, the AI begins as White, and both sides receive full 15-minute rapid clocks.
+- `Impossible` — the strongest mode. Stockfish uses the deepest current search budget, the AI plays the opposite of your chosen color, and both sides receive full 15-minute rapid clocks.
 
 `Impossible` is the maximum-strength mode in the current app.
 
