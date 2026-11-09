@@ -45,6 +45,7 @@ if (!app) {
 
 const soundboard = new ChessSoundboard();
 let selectedDifficulty: BotDifficulty = DEFAULT_DIFFICULTY;
+let selectedPlayerColor: PieceColor = "white";
 let playerName = "";
 let activePlayer: PlayerIdentity | null = null;
 const searchParams = new URLSearchParams(window.location.search);
@@ -368,6 +369,13 @@ const renderMenu = () => {
             ).join("")}
           </select>
         </label>
+        <fieldset class="select-block" aria-label="Choose your pieces" style="border:0;padding:0;margin:0 0 1rem">
+          <legend style="margin-bottom:.6rem">Play as</legend>
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="radio" name="player-color" value="white" ${selectedPlayerColor === "white" ? "checked" : ""} /> ♔ White</label>
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="radio" name="player-color" value="black" ${selectedPlayerColor === "black" ? "checked" : ""} /> ♚ Black</label>
+          </div>
+        </fieldset>
         <div class="difficulty-note">
           <span>Current challenge</span>
           <strong>${selectedDifficulty}</strong>
@@ -398,6 +406,12 @@ const renderMenu = () => {
         <p>${difficultyDescription(selectedDifficulty)}</p>
       `;
     }
+  });
+
+  document.querySelectorAll<HTMLInputElement>('input[name="player-color"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (radio.checked) selectedPlayerColor = radio.value === "black" ? "black" : "white";
+    });
   });
 
   playerNameInput?.addEventListener("input", () => {
@@ -546,7 +560,7 @@ const difficultyDescription = (difficulty: BotDifficulty) => {
     case "Nightmare Mode":
       return "Extremely hard with heavy tactical pressure.";
     case "Impossible":
-      return "Final boss chess. The AI starts as White; both sides have a full 15-minute rapid clock.";
+      return "Final boss chess. Choose White or Black; both sides have a full 15-minute rapid clock.";
   }
 };
 
@@ -641,7 +655,7 @@ const startGame = async () => {
     throw new Error("Required game UI nodes were not found.");
   }
 
-  const playerColor: PieceColor = selectedDifficulty === "Impossible" ? "black" : "white";
+  const playerColor: PieceColor = selectedPlayerColor;
   const chessScene: BoardRenderer =
     isMobileChessDevice() ? new FlatChessBoard(boardStage) : new ChessScene(boardStage);
   const controller = new ChessController();
@@ -900,6 +914,23 @@ const startGame = async () => {
       aiController.reactToPlayerMove();
       void syncAndRunBotTurn();
     }
+  });
+
+  hud.bindUndo(() => {
+    // AI work is invalidated by reset; an old engine result cannot play after undo.
+    if (controller.getSnapshot().gameOver || timedOutSide || externalResult) return;
+    const moves = controller.getMoveHistoryUci();
+    const lastPlayerPly = moves.length - (controller.getSnapshot().currentTurn === playerColor ? 2 : 1);
+    if (lastPlayerPly < 0) return;
+    if (!controller.takeBack(moves.length - lastPlayerPly)) return;
+    aiController.reset();
+    reviewPly = null;
+    queuedPremove = null;
+    premoveSelected = null;
+    recordedOutcomeSignature = "";
+    activeTurnColor = controller.getSnapshot().currentTurn;
+    lastTickAt = performance.now();
+    sync();
   });
 
   hud.bindReplay((ply) => {

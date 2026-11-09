@@ -130,6 +130,18 @@ export class ChessController {
     );
   }
 
+  /** Rebuild from legal move history to restore piece identities and castling rights. */
+  takeBack(plies: number): boolean {
+    const moves = this.getMoveHistoryUci();
+    if (plies < 1 || moves.length < plies) return false;
+    const remaining = moves.slice(0, -plies);
+    this.resetGame();
+    for (const move of remaining) {
+      if (!this.applyUciMove(move)) throw new Error("Could not restore move history.");
+    }
+    return true;
+  }
+
   getFen() {
     return this.chess.fen();
   }

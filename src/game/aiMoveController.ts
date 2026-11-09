@@ -57,6 +57,8 @@ export class AiMoveController {
   private readonly botColor: PieceColor;
   private readonly playerColor: PieceColor;
   private thinking = false;
+  private turnEpoch = 0;
+  private activeTurn: Promise<boolean> | null = null;
   private thinkingStage: string | null = null;
   private commentary = "The board is waiting.";
   private lastStyle = "opening";
@@ -207,6 +209,8 @@ export class AiMoveController {
   }
 
   reset() {
+    // Invalidates an in-flight engine answer so it cannot play into a rewound game.
+    this.turnEpoch += 1;
     this.commentary = `${this.personality.name} awaits your first move.`;
     this.lastStyle = "opening";
     this.source = "stockfish";
@@ -246,6 +250,23 @@ export class AiMoveController {
   }
 
   async maybeRunBotTurn() {
+    // A cancelled engine request may still be resolving: serialize access to
+    // the underlying local Stockfish worker to avoid overlapping searches.
+    while (this.activeTurn) {
+      const prior = this.activeTurn;
+      try { await prior; } catch { /* A previous failed search must not block a new game. */ }
+    }
+    const task = this.runBotTurn();
+    this.activeTurn = task;
+    try {
+      return await task;
+    } finally {
+      if (this.activeTurn === task) this.activeTurn = null;
+    }
+  }
+
+  private async runBotTurn() {
+    const epoch = this.turnEpoch;
     const snapshot = this.controller.getSnapshot();
     if (this.thinking || snapshot.gameOver || snapshot.currentTurn !== this.botColor || snapshot.pendingPromotion) {
       return false;
@@ -278,7 +299,7 @@ export class AiMoveController {
       await this.pause(adaptivePlan.openingPauseMs);
       this.thinkingStage = "Scanning for forced mate";
       this.notify();
-      if (!this.canProceed()) {
+      if (!this.canProceed(epoch)) {
         return false;
       }
       const mateScanDepth = MATE_SCAN_BY_DIFFICULTY[this.difficulty];
@@ -305,7 +326,7 @@ export class AiMoveController {
 
         const matingMove = mateScan?.candidates[0];
         if (mateScan && matingMove && typeof matingMove.mateIn === "number" && matingMove.mateIn > 0) {
-          if (!this.canProceed()) {
+          if (!this.canProceed(epoch)) {
             return false;
           }
           this.thinkingStage = `Forcing mate in ${matingMove.mateIn}`;
@@ -328,7 +349,7 @@ export class AiMoveController {
 
       this.thinkingStage = "Analyzing lines";
       this.notify();
-      if (!this.canProceed()) {
+      if (!this.canProceed(epoch)) {
         return false;
       }
       const positionFen = this.controller.getFen();
@@ -346,7 +367,7 @@ export class AiMoveController {
 
       this.thinkingStage = "Choosing a move";
       this.notify();
-      if (!this.canProceed()) {
+      if (!this.canProceed(epoch)) {
         return false;
       }
 
@@ -364,7 +385,7 @@ export class AiMoveController {
       await this.pause(adaptivePlan.finalizePauseMs);
       this.thinkingStage = "Finalizing";
       this.notify();
-      if (!this.canProceed()) {
+      if (!this.canProceed(epoch)) {
         return false;
       }
       const executed = this.tryDecision(decision) ?? this.tryBestMove(analysis.bestMove, decision);
@@ -378,9 +399,11 @@ export class AiMoveController {
       void this.decorateCommentaryAfterMove(moveRequest, decision.selectedMove);
       return true;
     } finally {
-      this.thinking = false;
-      this.thinkingStage = null;
-      this.notify();
+      if (epoch === this.turnEpoch) {
+        this.thinking = false;
+        this.thinkingStage = null;
+        this.notify();
+      }
     }
   }
 
@@ -426,16 +449,18 @@ export class AiMoveController {
     });
   }
 
-  private canProceed() {
-    return this.canContinueTurn?.() ?? true;
+  private canProceed(epoch: number) {
+    return epoch === this.turnEpoch && this.controller.getSnapshot().currentTurn === this.botColor &&
+      (this.canContinueTurn?.() ?? true);
   }
 
   private async decorateCommentaryAfterMove(
     request: Parameters<BotDecisionLayer["decorateMoveCommentary"]>[0],
     selectedMove: string
   ) {
+    const epoch = this.turnEpoch;
     const commentary = await this.decisionLayer.decorateMoveCommentary(request, selectedMove);
-    if (!commentary) {
+    if (!commentary || epoch !== this.turnEpoch) {
       return;
     }
 
@@ -449,8 +474,9 @@ export class AiMoveController {
     request: Parameters<BotDecisionLayer["decoratePlayerMoveCommentary"]>[0],
     selectedMove: string
   ) {
+    const epoch = this.turnEpoch;
     const commentary = await this.decisionLayer.decoratePlayerMoveCommentary(request, selectedMove);
-    if (!commentary || this.thinking) {
+    if (!commentary || this.thinking || epoch !== this.turnEpoch) {
       return;
     }
 
