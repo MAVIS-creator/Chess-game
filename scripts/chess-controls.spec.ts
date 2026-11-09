@@ -63,6 +63,27 @@ assert.equal(mid.moveCount, 3);
 assert.equal(enPassant.getReplaySnapshot(99).moveCount, 5);
 assert.equal(enPassant.getFen(), before);
 
+// Undo replays legal history, restoring captures and the prior turn without corrupting replay.
+const rewind = new ChessController();
+play(rewind, "e2e4", "e7e5", "g1f3");
+assert.equal(rewind.takeBack(2), true);
+assert.equal(rewind.getSnapshot().moveCount, 1);
+assert.equal(pieceAt(rewind, "e4")?.color, "white");
+assert.equal(pieceAt(rewind, "e5"), undefined);
+assert.equal(rewind.getMoveHistoryUci().join(" "), "e2e4");
+assert.equal(rewind.takeBack(2), false, "Cannot undo more moves than exist");
+assert.equal(rewind.takeBack(1), true);
+assert.equal(rewind.getSnapshot().moveCount, 0);
+assert.equal(rewind.getSnapshot().currentTurn, "white");
+assert.equal(rewind.takeBack(1), false, "Cannot undo from opening position");
+const rewindCapture = new ChessController();
+play(rewindCapture, "e2e4", "a7a6", "e4e5", "d7d5", "e5d6");
+assert.equal(rewindCapture.takeBack(1), true);
+assert.equal(pieceAt(rewindCapture, "d6"), undefined);
+assert.equal(pieceAt(rewindCapture, "d5")?.color, "black");
+assert.equal(pieceAt(rewindCapture, "e5")?.color, "white");
+assert.equal(rewindCapture.getSnapshot().currentTurn, "white");
+
 // All four promotions and legal chess endings remain delegated to chess.js.
 for (const role of ["q", "r", "b", "n"]) {
   const game = new Chess("4k3/P7/8/8/8/8/8/4K3 w - - 0 1");
