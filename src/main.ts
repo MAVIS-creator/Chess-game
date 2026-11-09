@@ -916,6 +916,23 @@ const startGame = async () => {
     }
   });
 
+  hud.bindUndo(() => {
+    // Never change the position while Stockfish is calculating a move.
+    if (aiController.getState().thinking || controller.getSnapshot().gameOver || timedOutSide || externalResult) return;
+    const moves = controller.getMoveHistoryUci();
+    const lastPlayerPly = moves.length - (controller.getSnapshot().currentTurn === playerColor ? 2 : 1);
+    if (lastPlayerPly < 0) return;
+    if (!controller.takeBack(moves.length - lastPlayerPly)) return;
+    aiController.reset();
+    reviewPly = null;
+    queuedPremove = null;
+    premoveSelected = null;
+    recordedOutcomeSignature = "";
+    activeTurnColor = controller.getSnapshot().currentTurn;
+    lastTickAt = performance.now();
+    sync();
+  });
+
   hud.bindReplay((ply) => {
     reviewPly = ply;
     // Do not commit a queued move while the user is inspecting history.
