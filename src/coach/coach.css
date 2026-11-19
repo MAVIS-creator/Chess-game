@@ -1,0 +1,110 @@
+:root { --coach-ink: #17231e; --coach-forest: #14251e; --coach-dark: #0c1713; --coach-cream: #f4ead9; --coach-gold: #d5b47b; }
+body.coach-mode { background: #0b1511 !important; color: #f6eee1; overflow-y: auto; font-family: Inter, "Segoe UI", Arial, sans-serif; }
+body.coach-mode #app { background: radial-gradient(ellipse at 83% 0%, rgba(154,115,65,.16), transparent 45%), linear-gradient(145deg,#0e2119,#09140f); min-height:100dvh; }
+.cedar-coach-shell { width:min(1480px,100%); margin:0 auto; padding:22px clamp(14px,3vw,34px) 64px; }
+.coach-top { display:flex; justify-content:space-between; align-items:center; gap:15px; padding:5px 0 28px; border-bottom:1px solid rgba(242,219,179,.13); }
+.coach-brand { display:flex; align-items:center; gap:12px; letter-spacing:.13em; }
+.coach-brand>span { display:grid; place-items:center; width:49px; height:49px; color:#261d11; font-size:2.3rem; background:var(--coach-gold); border-radius:13px; }
+.coach-brand strong { color:#fff2df; display:block; font:700 1.05rem Georgia,serif; }
+.coach-brand small { display:block; font-size:.59rem; margin-top:5px; letter-spacing:.2em; color:#b8c0b6; }
+.coach-top nav { display:flex; align-items:center; gap:14px; }
+.coach-top button, .coach-board-side button, .coach-talk-side button { cursor:pointer; font:inherit; }
+.coach-top button { background:none; border:1px solid #506051; color:#f1e5d5; border-radius:10px; padding:11px 17px; }
+.coach-tier { border:1px solid rgba(224,183,110,.35); color:#e6c48d; background:#1b2d22; border-radius:25px; padding:10px 16px; font-size:.82rem; }
+.coach-hero { display:flex; align-items:center; justify-content:space-between; padding:37px 3px 28px; gap:25px; }
+.coach-eyebrow { color:#c6a876; font-weight:700; letter-spacing:.21em; font-size:.67rem; }
+.coach-hero h1 { margin:12px 0 10px; font:normal clamp(2rem,4.5vw,4.15rem)/1.1 Georgia,"Times New Roman",serif; color:#f6eee1; letter-spacing:-.035em; }
+.coach-hero h1 em { color:#d8b77e; }
+.coach-hero p { margin:0; color:#b9c3b8; line-height:1.7; max-width:665px; font-size:.94rem; }
+.coach-hero-mark { border:1px solid rgba(215,173,105,.24); background:rgba(215,173,105,.08); color:#e2c38e; padding:16px 18px; white-space:nowrap; border-radius:12px; font:700 .85rem Georgia,serif; }
+.coach-layout { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(370px,.8fr); gap:22px; align-items:start; }
+.coach-board-side,.coach-talk-side { border:1px solid rgba(220,193,151,.19); border-radius:20px; background:#17271e; box-shadow:0 20px 50px rgba(0,0,0,.21); min-width:0; }
+.coach-board-side { padding:20px; }
+.coach-card-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:15px; }
+.coach-card-head strong,.coach-profile strong { display:block; font:700 1.12rem Georgia,serif; color:#f8e9d2; }
+.coach-card-head small,.coach-profile small { display:block; color:#a9bcad; margin-top:5px; font-size:.73rem; }
+.coach-card-head>div:last-child { display:flex; gap:7px; }
+.coach-card-head button,.coach-playback button,.coach-inline button,.coach-import>button { border:1px solid #4c604f; color:#e2d8c8; background:#203228; padding:8px 11px; border-radius:8px; font-size:.8rem; }
+.coach-board-wrap { width:min(100%,630px); aspect-ratio:1; margin:0 auto; border:7px solid #8b6640; border-radius:5px; box-shadow:0 12px 35px #03090570; overflow:hidden; }
+.coach-board { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); grid-template-rows:repeat(8,minmax(0,1fr)); width:100%;height:100%; }
+.coach-square { display:grid; place-items:center; border:0; margin:0; padding:0; font-family:"Segoe UI Symbol","DejaVu Sans",serif !important; font-size:clamp(20px,4vw,51px) !important; line-height:1; position:relative; transition:filter .14s; }
+.coach-square.light { background:#e6d2ad; color:#fcfaf3; text-shadow:0 1px 2px #392e22,0 0 2px #392e22; }
+.coach-square.dark { background:#6f8164; color:#171a16; text-shadow:0 1px 1px #ede5d3; }
+.coach-square.selected { background:#ebcc78; }
+.coach-square.target:after { content:""; position:absolute; width:25%;height:25%; background:#2d6641a9; border-radius:50%; }
+.coach-square.best-from { box-shadow:inset 0 0 0 4px #d8bd67; }
+.coach-square.best-to { box-shadow:inset 0 0 0 4px #3b8e55; background-image:radial-gradient(circle,#e7cd635b,transparent 60%); }
+.coach-square:focus-visible { outline:3px solid #ffc867; outline-offset:-3px; z-index:1; }
+.coach-engine-strip { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:13px 0 15px; flex-wrap:wrap; }
+.coach-engine-strip span { color:#d0dbc9; font-size:.8rem; }
+.coach-engine-strip button { border:0; background:#d8b77f; color:#15221a; font-weight:700; border-radius:9px; padding:10px 16px; }
+.coach-engine-strip button:disabled { opacity:.55; cursor:progress; }
+.coach-playback { border-top:1px solid #425243; padding-top:15px; display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.coach-playback strong { color:#f4e9d7; font-size:.91rem; }
+.coach-playback small { color:#a8b7a7; font-size:.76rem; }
+.coach-playback>div { margin-left:auto; display:flex; gap:7px; }
+.coach-playback button:disabled { opacity:.38; cursor:not-allowed; }
+.coach-moves { min-height:50px; margin:15px 0; padding:12px; border-radius:10px; background:#0d1b15; display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px; max-height:96px; overflow:auto; color:#97a99b; font-size:.77rem; }
+.coach-moves button { border:1px solid #3a503e; background:transparent; color:#d1dfd2; padding:5px 7px; border-radius:6px; font-size:.77rem; }
+.coach-moves button.active { background:#d3b47b; color:#132017; }
+.coach-import { border-top:1px solid #425243; padding-top:14px; color:#c5d0c5; font-size:.83rem; }
+.coach-import summary { cursor:pointer; font-weight:700; margin-bottom:12px; color:#ebd7b7; }
+.coach-import label { display:block; margin:11px 0 6px; }
+.coach-import input,.coach-import textarea { display:block; width:100%; margin-top:6px; min-width:0; background:#102018; border:1px solid #4b6251; border-radius:8px; padding:10px; color:#f0e5d7; font:inherit; }
+.coach-import input[type=file] { padding:7px; }
+.coach-inline { display:flex; gap:8px; }
+.coach-import p { color:#cfbf99; min-height:18px; line-height:1.5; }
+.coach-talk-side { overflow:hidden; display:flex; flex-direction:column; min-height:670px; }
+.coach-profile { display:flex; gap:12px; align-items:center; padding:21px; border-bottom:1px solid #415341; }
+.coach-profile-icon { width:47px;height:47px;display:grid;place-items:center;background:linear-gradient(135deg,#d2b07e,#72573f); color:#18271c;border-radius:50%;font-size:1.8rem; }
+.coach-available { margin-left:auto; color:#94d4a2; font-size:.7rem; white-space:nowrap; }
+.coach-mode-switch { display:flex; padding:11px 16px; gap:7px; }
+.coach-mode-switch button { flex:1; border:1px solid #395342; background:#102018; color:#bdcbbf; padding:11px; border-radius:9px; font-size:.82rem; }
+.coach-mode-switch button.active { background:#d7b57e; color:#1a291e; font-weight:700; border-color:#d7b57e; }
+.coach-messages { flex:1; min-height:250px; max-height:440px; overflow:auto; padding:18px; display:flex; flex-direction:column; gap:15px; }
+.coach-bubble { max-width:95%; align-self:flex-start; border:1px solid #405845; border-radius:13px 13px 13px 3px; background:#233b2c; padding:14px 17px; line-height:1.55; }
+.coach-bubble.student { align-self:flex-end; border-radius:13px 13px 3px 13px; background:#233027; border-color:#5e5748; }
+.coach-bubble small { color:#dcbf8b; font-size:.68rem; font-weight:700; }
+.coach-bubble p { margin:7px 0 0; color:#e9ecdf; font-size:.9rem; }
+.coach-suggestions { display:flex; gap:7px; flex-wrap:wrap; padding:0 15px 13px; }
+.coach-suggestions button { border:1px solid #4a614e; background:#21372a; color:#d8d9c7; padding:8px 10px; border-radius:24px; font-size:.73rem; }
+.coach-composer { display:flex; gap:7px; margin:0 14px 12px; background:#0e1b14; border:1px solid #58705b; padding:7px; border-radius:12px; }
+.coach-composer input { flex:1; min-width:0; border:0;outline:0;background:none;color:#f2eedf;padding:8px;font:inherit;font-size:.85rem; }
+.coach-composer button { border:0; border-radius:8px; background:#29402e; color:#f7e8d5; min-width:38px; }
+.coach-composer #coach-send { background:#d2b078; color:#18251a; font-size:1.1rem; }
+.coach-composer .recording { background:#a83c4d; }
+.coach-speak { display:flex; align-items:center; gap:8px; font-size:.8rem; color:#c6d1c4; padding:0 17px 9px; }
+.coach-preview-note { margin:5px 18px 18px; font-size:.7rem; color:#91a294; line-height:1.6; }
+button:hover:not(:disabled) { filter:brightness(1.08); }
+@media(max-width:900px) {
+ .coach-layout { grid-template-columns:minmax(0,1fr); }
+ .coach-talk-side { min-height:550px; }
+ .coach-messages { max-height:330px; }
+ .coach-hero-mark { display:none; }
+ .coach-board-wrap { max-width:590px; }
+ .coach-square { font-size:clamp(19px,6vw,55px) !important; }
+}
+@media(max-width:520px) {
+ .cedar-coach-shell { padding:12px 10px 45px; }
+ .coach-top { padding:4px 1px 17px; }
+ .coach-brand { gap:8px; }
+ .coach-brand>span { height:40px;width:40px;font-size:1.8rem; }
+ .coach-brand strong { font-size:.85rem; }
+ .coach-brand small { font-size:.49rem; }
+ .coach-top nav { gap:6px; }
+ .coach-top button { padding:9px 10px; font-size:.72rem; }
+ .coach-tier { display:none; }
+ .coach-hero { padding:23px 2px; }
+ .coach-hero h1 { font-size:clamp(2.05rem,8vw,2.9rem); }
+ .coach-hero p { font-size:.83rem; }
+ .coach-board-side { padding:9px;border-radius:13px; }
+ .coach-talk-side { border-radius:13px; }
+ .coach-board-wrap { width:100%; border-width:5px; }
+ .coach-square { font-size:clamp(22px,8vw,43px) !important; }
+ .coach-card-head { padding:5px; }
+ .coach-card-head strong { font-size:.9rem; }
+ .coach-card-head button { padding:7px 8px; font-size:.72rem; }
+ .coach-profile { padding:15px; }
+ .coach-available { font-size:.62rem; }
+ .coach-messages { min-height:230px; }
+}
