@@ -1,4 +1,5 @@
 import "./styles.css";
+import { mountCoachClassroom } from "./coach/CoachClassroom";
 import { changeAccountEmail, changeAccountPassword, getAccountDetails } from "./auth/accountSettings";
 import {
   getCurrentPlayer,
@@ -305,6 +306,18 @@ const renderPasswordRecovery = () => {
   });
 };
 
+const renderCoach = () => {
+  activeSessionCleanup?.();
+  activeSessionCleanup = null;
+  if (!activePlayer) { renderAuth(); return; }
+  window.history.replaceState(null, "", "/?mode=coach");
+  activeSessionCleanup = mountCoachClassroom(app, activePlayer.displayName, () => {
+    activeSessionCleanup = null;
+    window.history.replaceState(null, "", "/");
+    renderMenu();
+  });
+};
+
 const renderMenu = () => {
   activeSessionCleanup?.();
   activeSessionCleanup = null;
@@ -387,6 +400,7 @@ const renderMenu = () => {
           <p>Each clock counts down only while that side is to move. No reset after each move and no increment.</p>
         </div>
         <button class="start-button" id="start-match" type="button">Start game</button>
+        <button class="start-button" id="start-coach" type="button">✦ Explore Cedar AI Coach</button>
         <button class="account-link-button" id="open-account-settings" type="button">♔ Account settings · Change email or password</button>
       </aside>
     </main>
@@ -421,6 +435,8 @@ const renderMenu = () => {
   document.querySelector<HTMLButtonElement>("#open-account-settings")?.addEventListener("click", () => {
     void renderAccountSettings();
   });
+
+  document.querySelector<HTMLButtonElement>("#start-coach")?.addEventListener("click", renderCoach);
 
   startButton?.addEventListener("click", () => {
     playerName = playerNameInput?.value.trim() || activePlayer?.displayName || "Guest";
@@ -1125,7 +1141,8 @@ const initApp = async () => {
   }
 
   if (activePlayer) {
-    renderMenu();
+    if (searchParams.get("mode") === "coach") renderCoach();
+    else renderMenu();
     return;
   }
 
